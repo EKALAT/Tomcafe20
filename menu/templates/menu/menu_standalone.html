@@ -1,0 +1,219 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}เมนูอาหารและเครื่องดื่ม - TomCafe{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --primary-color: #6f4e37;
+        --secondary-color: #b87333;
+        --light-color: #f8f9fa;
+        --dark-color: #343a40;
+    }
+
+    /* Category filter styling */
+    .category-filter {
+        margin-bottom: 2rem;
+        display: flex;
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 10px;
+        background-color: white;
+        padding: 15px;
+        border-radius: 12px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    }
+
+    .category-btn {
+        background-color: var(--light-color);
+        color: var(--dark-color);
+        border: 1px solid var(--secondary-color);
+        border-radius: 30px;
+        padding: 8px 20px;
+        margin: 5px;
+        transition: all 0.3s;
+        font-weight: 500;
+    }
+
+    .category-btn:hover,
+    .category-btn.active {
+        background-color: var(--secondary-color);
+        color: white;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Menu grid styling */
+    .menu-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 20px;
+        padding: 0 20px;
+    }
+
+    .menu-item {
+        background-color: white;
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        transition: transform 0.3s;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .menu-item:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 15px rgba(0, 0, 0, 0.15);
+    }
+
+    .menu-item-img {
+        height: 200px;
+        background-size: cover;
+        background-position: center;
+    }
+
+    .menu-item-content {
+        padding: 15px;
+        flex-grow: 1;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .menu-item-title {
+        font-weight: bold;
+        margin-bottom: 5px;
+        color: var(--primary-color);
+    }
+
+    .menu-item-price {
+        color: var(--secondary-color);
+        font-weight: bold;
+        font-size: 1.2rem;
+    }
+
+    .menu-item-category {
+        font-size: 0.8rem;
+        color: #666;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    .add-to-cart-btn {
+        background-color: var(--primary-color);
+        color: white;
+        border: none;
+        padding: 8px 15px;
+        border-radius: 5px;
+        width: 100%;
+        margin-top: 10px;
+        transition: background-color 0.3s;
+    }
+
+    .add-to-cart-btn:hover {
+        background-color: var(--secondary-color);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    @media (max-width: 768px) {
+        .menu-grid {
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        }
+    }
+
+    /* Debug styles */
+    .debug-info {
+        background-color: #f8d7da;
+        border: 1px solid #f5c6cb;
+        padding: 15px;
+        margin-bottom: 20px;
+        border-radius: 5px;
+    }
+</style>
+{% endblock %}
+
+{% block header_text %}เมนูของเรา{% endblock %}
+{% block subheader_text %}ค้นพบอาหารและเครื่องดื่มที่อร่อย{% endblock %}
+
+{% block content %}
+<div class="container">
+    {% if debug_mode %}
+    <div class="debug-info">
+        <h4>Debug Information</h4>
+        <p>Media URL: {{ media_url }}</p>
+        <p>Selected Category: {{ category|default:"None" }}</p>
+        <p>Available Categories: {{ categories|join:", " }}</p>
+        <p>Total Menu Items: {{ menu_items.count }}</p>
+    </div>
+    {% endif %}
+
+    <div class="category-filter">
+        <a href="{% url 'menu_list' %}" class="btn category-btn {% if not category %}active{% endif %}">
+            <i class="fas fa-utensils me-2"></i>ทั้งหมด
+        </a>
+        {% for cat in categories %}
+        <a href="{% url 'menu_list' %}?category={{ cat }}"
+            class="btn category-btn {% if category == cat %}active{% endif %}">
+            {% if cat == 'Cà phê' %}
+            <i class="fas fa-coffee me-2"></i>{{ cat }}
+            {% elif cat == 'Trà' %}
+            <i class="fas fa-mug-hot me-2"></i>{{ cat }}
+            {% elif cat == 'Đồ ăn nhẹ' %}
+            <i class="fas fa-hamburger me-2"></i>{{ cat }}
+            {% elif cat == 'Bánh ngọt' %}
+            <i class="fas fa-birthday-cake me-2"></i>{{ cat }}
+            {% else %}
+            <i class="fas fa-star me-2"></i>{{ cat }}
+            {% endif %}
+        </a>
+        {% endfor %}
+    </div>
+
+    <div class="menu-grid">
+        {% for item in menu_items %}
+        <div class="menu-item">
+            {% if item.image %}
+            <div class="menu-item-img" style="background-image: url('{{ item.image.url }}');"></div>
+            {% else %}
+            <div class="menu-item-img"
+                style="background-image: url('https://via.placeholder.com/300x200?text=No+Image');"></div>
+            {% endif %}
+            <div class="menu-item-content">
+                <div class="menu-item-category">{{ item.category }}</div>
+                <h3 class="menu-item-title">{{ item.name }}</h3>
+                <p>{{ item.description|default:"No description available" }}</p>
+                <div class="d-flex justify-content-between align-items-center mt-auto">
+                    <span class="menu-item-price">{{ item.price|floatformat:0|intcomma }} đ</span>
+                    <form action="{% url 'add_to_cart' item.id %}" method="post">
+                        {% csrf_token %}
+                        <button type="submit" class="add-to-cart-btn">
+                            <i class="fas fa-shopping-cart me-2"></i>เพิ่มลงตะกร้า
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12 text-center">
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i>ไม่พบรายการอาหารและเครื่องดื่ม
+            </div>
+            {% if debug_mode %}
+            <div class="debug-info mt-3">
+                <p>No menu items were returned from the database query.</p>
+                <p>Check that:</p>
+                <ul>
+                    <li>There are items in the database</li>
+                    <li>If filtering by category, check that the category exists</li>
+                    <li>If filtering by availability, ensure items are marked as available</li>
+                </ul>
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

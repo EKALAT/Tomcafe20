@@ -1,0 +1,139 @@
+{% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}ตะกร้าสินค้า - TomCafe{% endblock %}
+
+{% block header_text %}ตะกร้าสินค้า{% endblock %}
+{% block subheader_text %}รายการสินค้าที่คุณต้องการสั่งซื้อ{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-lg-8">
+            {% if cart_items %}
+            <div class="card shadow mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-shopping-cart me-2"></i>รายการสินค้า</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>สินค้า</th>
+                                    <th class="text-center">ราคา</th>
+                                    <th class="text-center">จำนวน</th>
+                                    <th class="text-end">รวม</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in cart_items %}
+                                <tr>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            {% if item.image %}
+                                            <img src="{{ item.image.url }}" alt="{{ item.name }}" class="me-3"
+                                                style="width: 50px; height: 50px; object-fit: cover; border-radius: 6px;">
+                                            {% else %}
+                                            <div class="me-3 bg-light d-flex align-items-center justify-content-center"
+                                                style="width: 50px; height: 50px; border-radius: 6px;">
+                                                <i class="fas fa-coffee text-muted"></i>
+                                            </div>
+                                            {% endif %}
+                                            <div>
+                                                <h6 class="mb-0">{{ item.name }}</h6>
+                                                <small class="text-muted">{{ item.category }}</small>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="text-center">{{ item.price|floatformat:0|intcomma }} đ</td>
+                                    <td class="text-center">
+                                        <form method="post" action="{% url 'update_cart' item.id %}"
+                                            class="d-flex justify-content-center">
+                                            {% csrf_token %}
+                                            <div class="input-group input-group-sm" style="width: 100px;">
+                                                <button type="submit" name="action" value="decrease"
+                                                    class="btn btn-outline-secondary">
+                                                    <i class="fas fa-minus"></i>
+                                                </button>
+                                                <input type="text" class="form-control text-center"
+                                                    value="{{ item.quantity }}" readonly>
+                                                <button type="submit" name="action" value="increase"
+                                                    class="btn btn-outline-secondary">
+                                                    <i class="fas fa-plus"></i>
+                                                </button>
+                                            </div>
+                                        </form>
+                                    </td>
+                                    <td class="text-end fw-bold">{{ item.total|floatformat:0|intcomma }} đ</td>
+                                    <td class="text-end">
+                                        <form method="post" action="{% url 'remove_from_cart' item.id %}">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="card shadow mb-4">
+                <div class="card-body text-center p-5">
+                    <div class="mb-4">
+                        <i class="fas fa-shopping-cart fa-4x text-muted"></i>
+                    </div>
+                    <h3>ตะกร้าของคุณว่างเปล่า</h3>
+                    <p class="mb-4">ยังไม่มีรายการสินค้าในตะกร้า เริ่มสั่งซื้อกันเลย!</p>
+                    <a href="{% url 'menu_list' %}" class="btn btn-primary btn-lg">
+                        <i class="fas fa-utensils me-2"></i>ดูเมนูของเรา
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        {% if cart_items %}
+        <div class="col-lg-4">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="fas fa-receipt me-2"></i>สรุปคำสั่งซื้อ</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between mb-3">
+                        <span>จำนวนรายการ:</span>
+                        <strong>{{ total_items }} รายการ</strong>
+                    </div>
+                    <div class="d-flex justify-content-between mb-3">
+                        <span>ราคารวม:</span>
+                        <strong>{{ cart_total|floatformat:0|intcomma }} đ</strong>
+                    </div>
+                    <hr>
+                    <div class="d-flex justify-content-between mb-3">
+                        <span>ชื่อลูกค้า:</span>
+                        <strong>{{ customer_name }}</strong>
+                    </div>
+                    <div class="d-flex justify-content-between mb-4">
+                        <span>โต๊ะ:</span>
+                        <strong>{{ table_number }}</strong>
+                    </div>
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'confirm_order' %}" class="btn btn-success btn-lg">
+                            <i class="fas fa-check-circle me-2"></i>ยืนยันคำสั่งซื้อ
+                        </a>
+                        <a href="{% url 'menu_list' %}" class="btn btn-outline-primary">
+                            <i class="fas fa-arrow-left me-2"></i>เลือกเมนูเพิ่มเติม
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

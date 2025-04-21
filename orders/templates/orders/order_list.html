@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+
+{% block title %}รายการคำสั่งซื้อ - TomCafe{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1 class="mt-5">รายการคำสั่งซื้อ</h1>
+
+    {% if orders %}
+    <div class="table-responsive">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>ลูกค้า</th>
+                    <th>โต๊ะ</th>
+                    <th>วันที่</th>
+                    <th>สถานะ</th>
+                    <th>การดำเนินการ</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for order in orders %}
+                <tr>
+                    <td>{{ order.id }}</td>
+                    <td>{{ order.customer_name }}</td>
+                    <td>{{ order.table.number }}</td>
+                    <td>{{ order.created_at }}</td>
+                    <td>{{ order.status }}</td>
+                    <td>
+                        <a href="#" class="btn btn-sm btn-primary">ดู</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="alert alert-info">
+        ยังไม่มีรายการคำสั่งซื้อ
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

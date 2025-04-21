@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+
+{% block title %}โต๊ะทั้งหมด - TomCafe{% endblock %}
+
+{% block header_text %}เลือกโต๊ะ{% endblock %}
+{% block subheader_text %}เริ่มต้นการสั่งอาหารด้วยการเลือกโต๊ะของคุณ{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        {% for table in tables %}
+        <div class="col-md-4 col-sm-6 mb-4">
+            <div
+                class="card h-100 {% if table.status == 'available' %}border-success{% elif table.status == 'occupied' %}border-warning{% else %}border-danger{% endif %}">
+                <div class="card-body text-center">
+                    <div class="mb-3">
+                        <i
+                            class="fas fa-chair fa-4x 
+                                {% if table.status == 'available' %}text-success{% elif table.status == 'occupied' %}text-warning{% else %}text-danger{% endif %}">
+                        </i>
+                    </div>
+                    <h3 class="card-title">โต๊ะ {{ table.number }}</h3>
+                    <p class="card-text">
+                        {% if table.status == 'available' %}
+                        <span class="badge bg-success">ว่าง</span>
+                        {% elif table.status == 'occupied' %}
+                        <span class="badge bg-warning text-dark">มีลูกค้าใช้งาน</span>
+                        {% else %}
+                        <span class="badge bg-danger">ไม่พร้อมใช้งาน</span>
+                        {% endif %}
+                    </p>
+                    <p class="card-text">
+                        <small class="text-muted">ความจุ: {{ table.capacity }} ที่นั่ง</small>
+                    </p>
+                </div>
+                <div class="card-footer bg-white border-top-0 text-center">
+                    {% if table.status == 'available' %}
+                    <a href="{% url 'enter_name' table.id %}" class="btn btn-primary">
+                        <i class="fas fa-utensils me-1"></i> เริ่มสั่งอาหาร
+                    </a>
+                    {% elif table.status == 'occupied' %}
+                    <a href="{% url 'menu_list' %}?table={{ table.id }}" class="btn btn-outline-primary">
+                        <i class="fas fa-plus me-1"></i> สั่งเพิ่ม
+                    </a>
+                    {% else %}
+                    <button class="btn btn-secondary" disabled>
+                        <i class="fas fa-ban me-1"></i> ไม่พร้อมใช้งาน
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12 text-center py-5">
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i> ไม่พบโต๊ะในร้าน โปรดเพิ่มโต๊ะในหน้าผู้ดูแลระบบ
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

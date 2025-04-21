@@ -1,0 +1,254 @@
+{% extends "admin/base.html" %}
+{% load static %}
+
+{% block title %}{{ title }} | {{ site_title|default:_("TomCafe Admin") }}{% endblock %}
+
+{% block branding %}
+<h1 id="site-name">
+    <a href="{% url 'admin:index' %}">
+        <img src="{% static 'img/Tomcafe.jpg' %}" alt="TomCafe Logo" height="40"
+            style="margin-right: 10px; border-radius: 8px;">
+        {{ site_header|default:_("TomCafe Administration") }}
+    </a>
+</h1>
+{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+    /* Biến màu chính */
+    :root {
+        --primary: #6f4e37;
+        --secondary: #d4a76a;
+        --accent: #8b5a2b;
+        --primary-fg: #fff;
+        --body-bg: #f5f5f5;
+        --body-quiet-color: #666;
+        --body-loud-color: #000;
+    }
+
+    body {
+        margin: 0;
+        padding: 0;
+    }
+
+    /* Chỉnh sửa phần header để kẹp sát với phía trên */
+    #header {
+        background: var(--primary);
+        background-image: linear-gradient(to right, #6f4e37, #8b5a2b);
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+        margin: 0;
+        padding: 15px 20px;
+        position: sticky;
+        top: 0;
+        z-index: 1000;
+    }
+
+    #branding h1 {
+        font-weight: bold;
+        letter-spacing: 0.5px;
+        margin: 0;
+    }
+
+    /* Làm nổi bật phần tên app */
+    .module {
+        border-radius: 10px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+        margin-bottom: 20px;
+        border: none;
+        transition: transform 0.2s ease;
+    }
+
+    .module:hover {
+        transform: translateY(-5px);
+    }
+
+    .module h2,
+    .module caption,
+    .inline-group h2 {
+        background: var(--primary);
+        color: var(--primary-fg);
+        font-size: 14px;
+        font-weight: bold;
+        letter-spacing: 0.5px;
+        padding: 12px 15px;
+    }
+
+    /* Cải thiện hiển thị application */
+    .app-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+        gap: 20px;
+    }
+
+    .app-name {
+        font-size: 16px;
+        font-weight: bold;
+        color: var(--primary);
+        background-color: #f7f7f7;
+        padding: 12px 15px;
+        border-radius: 8px;
+        margin-bottom: 15px;
+        border-left: 4px solid var(--primary);
+        display: flex;
+        align-items: center;
+    }
+
+    .app-icon {
+        margin-right: 10px;
+        font-size: 18px;
+        width: 30px;
+        height: 30px;
+        background: var(--primary);
+        color: white;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    /* Cải thiện hiển thị model trong app */
+    .model-list {
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        margin: 10px 0;
+    }
+
+    .model-list caption {
+        font-weight: bold;
+        padding: 12px 15px;
+        text-align: left;
+    }
+
+    /* Cải thiện nút thao tác */
+    .button,
+    input[type=submit],
+    input[type=button],
+    .submit-row input,
+    a.button {
+        border-radius: 5px;
+        transition: all 0.3s ease;
+        background: var(--primary);
+        border: none;
+        font-weight: bold;
+    }
+
+    .button:hover,
+    input[type=submit]:hover,
+    input[type=button]:hover,
+    .submit-row input:hover {
+        background: var(--accent);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    }
+
+    .button.default,
+    input[type=submit].default {
+        background: var(--accent);
+    }
+
+    .button.default:hover,
+    input[type=submit].default:hover {
+        background: #4a3326;
+    }
+
+    /* Font Awesome cho icon */
+    @import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css');
+
+    /* Responsive */
+    @media (max-width: 767px) {
+        #header {
+            padding: 10px;
+        }
+
+        #branding h1 {
+            font-size: 18px;
+        }
+
+        .dashboard .module {
+            margin-bottom: 15px;
+        }
+
+        .app-list {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    /* Cập nhật bảng */
+    #result_list {
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+    }
+
+    #result_list thead th {
+        background: var(--primary);
+        color: white;
+        padding: 12px 15px;
+    }
+
+    #result_list tbody tr:nth-child(odd) {
+        background-color: rgba(111, 78, 55, 0.05);
+    }
+
+    #result_list tbody tr:hover {
+        background-color: rgba(111, 78, 55, 0.1);
+    }
+
+    .form-row {
+        border-bottom: 1px solid rgba(111, 78, 55, 0.1);
+        padding: 12px 0;
+    }
+
+    /* Sửa lỗi spacing trong một số trường hợp */
+    div.breadcrumbs {
+        margin-top: 0;
+    }
+
+    /* Cải thiện các link trong app */
+    .addlink,
+    .changelink,
+    .deletelink {
+        padding: 6px 12px;
+        border-radius: 5px;
+        display: inline-block;
+        margin: 3px;
+        font-size: 0.9em;
+        font-weight: bold;
+        text-decoration: none !important;
+    }
+
+    .addlink {
+        background-color: #28a745;
+        color: white !important;
+    }
+
+    .changelink {
+        background-color: #007bff;
+        color: white !important;
+    }
+
+    .deletelink {
+        background-color: #dc3545;
+        color: white !important;
+    }
+</style>
+{% endblock %}
+
+{% block footer %}
+<div id="footer">
+    <div class="container">
+        <hr style="margin: 20px 0; border-color: var(--secondary);">
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0;">
+            <div>
+                <strong>TomCafe</strong> - ระบบจัดการร้านกาแฟ &copy; {% now "Y" %}
+            </div>
+            <div>
+                <span style="margin-left: 10px;">เวลาปัจจุบัน: {% now "j F Y H:i" %}</span>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

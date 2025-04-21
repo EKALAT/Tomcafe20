@@ -1,0 +1,7 @@
+# order/views.py
+from django.shortcuts import render
+from .models import Order
+
+def kitchen_view(request):
+    orders = Order.objects.filter(status='waiting')
+    return render(request, 'order/kitchen.html', {'orders': orders})
