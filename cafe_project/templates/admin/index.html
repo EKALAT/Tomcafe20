@@ -2,22 +2,61 @@
 {% load i18n static humanize %}
 
 {% block extrastyle %}{{ block.super }}
-<link rel="stylesheet" type="text/css" href="{% static " admin/css/dashboard.css" %}">
 <style>
-    .dashboard-cards {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 20px;
+    /* Dashboard styles */
+    .dashboard-container {
+        padding: 20px;
+    }
+
+    /* Dashboard heading */
+    .dashboard-header {
         margin-bottom: 30px;
+        text-align: center;
+        padding: 20px 0;
+        position: relative;
+    }
+
+    .dashboard-header::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 80px;
+        height: 3px;
+        background: linear-gradient(to right, var(--primary), var(--secondary));
+        border-radius: 3px;
+    }
+
+    .dashboard-header h1 {
+        font-size: 2rem;
+        font-weight: 600;
+        color: var(--primary);
+        margin-bottom: 15px;
+        font-family: 'Lobster', sans-serif;
+    }
+
+    .dashboard-header p {
+        color: var(--primary-dark);
+        font-size: 1.2rem;
+        max-width: 800px;
+        margin: 0 auto;
+        font-weight: 500;
+    }
+
+    /* Stats cards */
+    .dashboard-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 25px;
+        margin-bottom: 35px;
     }
 
     .card {
-        flex: 1;
-        min-width: 220px;
         padding: 25px;
         background-color: white;
-        border-radius: 12px;
-        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+        border-radius: 15px;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
         text-align: center;
         transition: all 0.3s ease;
         border: none;
@@ -31,105 +70,297 @@
         top: 0;
         left: 0;
         width: 100%;
-        height: 5px;
-        background: linear-gradient(to right, #6f4e37, #d4a76a);
+        height: 6px;
+        background: linear-gradient(to right, var(--primary-dark), var(--secondary));
     }
 
     .card:hover {
         transform: translateY(-8px);
-        box-shadow: 0 15px 30px rgba(0, 0, 0, 0.15);
+        box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
+    }
+
+    .card-progress {
+        width: 90px;
+        height: 90px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 20px;
+        background: linear-gradient(135deg, #f8f1e9 0%, #f0e4d7 100%);
+        position: relative;
+        box-shadow: 0 5px 15px rgba(111, 78, 55, 0.15);
     }
 
     .card-icon {
-        font-size: 2.5em;
-        margin-bottom: 15px;
-        color: #6f4e37;
-        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        width: 70px;
+        height: 70px;
+        border-radius: 50%;
+        background-color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--primary);
+        font-size: 28px;
+        box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s;
+        z-index: 1;
+    }
+
+    .card:hover .card-icon {
+        transform: scale(1.1) rotate(5deg);
+        color: var(--secondary);
     }
 
     .card-title {
-        font-size: 1.1em;
+        font-size: 1rem;
         margin-bottom: 10px;
-        color: #666;
+        color: #555;
         font-weight: 500;
     }
 
     .card-value {
-        font-size: 2.5em;
-        font-weight: bold;
-        color: #6f4e37;
+        font-size: 2.2rem;
+        font-weight: 700;
+        color: var(--primary);
+        margin-bottom: 5px;
+        text-shadow: 0 2px 3px rgba(0, 0, 0, 0.05);
+    }
+
+    /* Action groups */
+    .action-groups-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+        gap: 25px;
+        margin-bottom: 35px;
+    }
+
+    .action-group {
+        background: white;
+        padding: 25px;
+        border-radius: 15px;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
+        transition: all 0.3s;
+        position: relative;
+        overflow: hidden;
+        border: 1px solid rgba(111, 78, 55, 0.05);
+    }
+
+    .action-group::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 5px;
+        background: linear-gradient(to right, var(--primary), var(--secondary));
+    }
+
+    .action-group:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
+        border-color: rgba(111, 78, 55, 0.15);
+    }
+
+    .action-group-header {
+        display: flex;
+        align-items: center;
+        margin-bottom: 20px;
+        padding-bottom: 15px;
+        border-bottom: 2px solid rgba(111, 78, 55, 0.08);
+    }
+
+    .action-group-icon {
+        width: 52px;
+        height: 52px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+        margin-right: 15px;
+        box-shadow: 0 5px 10px rgba(111, 78, 55, 0.2);
+        transition: all 0.3s;
+    }
+
+    .action-group:hover .action-group-icon {
+        transform: rotate(15deg) scale(1.05);
+        background: linear-gradient(135deg, var(--secondary-dark) 0%, var(--secondary) 100%);
+    }
+
+    .action-group-title {
+        font-size: 1.4rem;
+        font-weight: 600;
+        color: var(--primary);
+        margin: 0;
+        position: relative;
+        font-family: 'Be Vietnam Pro', sans-serif;
+        letter-spacing: 0.5px;
+    }
+
+    .action-group-title::after {
+        content: '';
+        position: absolute;
+        bottom: -5px;
+        left: 0;
+        width: 0;
+        height: 2px;
+        background: var(--secondary);
+        transition: width 0.3s ease;
+    }
+
+    .action-group:hover .action-group-title::after {
+        width: 50px;
+    }
+
+    .action-group-items {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 15px;
+    }
+
+    .action-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 18px 10px;
+        background-color: #f8f1e9;
+        color: var(--primary);
+        border-radius: 15px;
+        text-decoration: none;
+        transition: all 0.3s ease;
+        text-align: center;
+        height: 100%;
+        border: 1px solid rgba(111, 78, 55, 0.08);
+        position: relative;
+        overflow: hidden;
+        z-index: 1;
+    }
+
+    .action-item span {
+        font-weight: 500;
+        font-size: 0.95rem;
         margin-bottom: 5px;
     }
 
-    .quick-links {
-        margin-bottom: 30px;
-        background: white;
-        padding: 20px;
-        border-radius: 12px;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+    .action-item .item-count {
+        font-size: 0.75rem;
+        color: rgba(111, 78, 55, 0.7);
+        background: rgba(255, 255, 255, 0.7);
+        padding: 3px 8px;
+        border-radius: 10px;
+        margin-top: 5px;
+        transition: all 0.3s;
     }
 
-    .quick-links h2 {
-        font-size: 1.5em;
-        margin-bottom: 15px;
-        padding-bottom: 10px;
-        border-bottom: 2px solid #f0f0f0;
-        color: #6f4e37;
-    }
-
-    .quick-links a {
-        display: inline-block;
-        margin-right: 10px;
-        margin-bottom: 10px;
-        padding: 12px 18px;
-        background-color: #6f4e37;
+    .action-item:hover .item-count {
+        background: rgba(255, 255, 255, 0.3);
         color: white;
-        border-radius: 8px;
-        text-decoration: none;
-        transition: all 0.3s ease;
-        font-weight: 500;
     }
 
-    .quick-links a:hover {
-        background-color: #5d4130;
-        transform: translateY(-3px);
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    .action-item::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+        z-index: -1;
+        opacity: 0;
+        transition: opacity 0.3s ease;
     }
 
-    .app-section {
-        margin-bottom: 30px;
+    .action-item-icon {
+        font-size: 24px;
+        margin-bottom: 12px;
+        width: 54px;
+        height: 54px;
+        background: white;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 3px 8px rgba(0, 0, 0, 0.05);
+        transition: all 0.3s;
+        color: var(--primary);
+        position: relative;
+        z-index: 2;
     }
 
-    .app-section h2 {
-        font-size: 1.5em;
-        margin-bottom: 20px;
-        padding-bottom: 10px;
-        border-bottom: 2px solid #f0f0f0;
-        color: #6f4e37;
+    .action-item:hover {
+        color: white;
+        transform: translateY(-5px);
+        box-shadow: 0 8px 15px rgba(0, 0, 0, 0.15);
+        border-color: transparent;
     }
 
+    .action-item:hover::before {
+        opacity: 1;
+    }
+
+    .action-item:hover .action-item-icon {
+        transform: scale(1.15) rotate(10deg);
+        box-shadow: 0 6px 15px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Apps section */
+    .apps-section {
+        margin-bottom: 40px;
+    }
+
+    .section-header {
+        display: flex;
+        align-items: center;
+        margin-bottom: 25px;
+    }
+
+    .section-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 15px;
+        font-size: 18px;
+    }
+
+    .section-title {
+        font-size: 1.4rem;
+        font-weight: 600;
+        color: var(--primary);
+        margin: 0;
+    }
+
+    /* App list - Updated styles */
     .app-list {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
         gap: 20px;
     }
 
     .app-item {
         background: white;
-        border-radius: 12px;
+        border-radius: 15px;
         overflow: hidden;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-        transition: all 0.3s ease;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
+        transition: all 0.3s;
     }
 
     .app-item:hover {
         transform: translateY(-5px);
-        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.15);
+        box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
     }
 
     .app-header {
-        padding: 15px;
-        background: #6f4e37;
+        padding: 18px 20px;
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
         color: white;
         display: flex;
         align-items: center;
@@ -138,8 +369,8 @@
     .app-icon {
         width: 40px;
         height: 40px;
+        border-radius: 10px;
         background: rgba(255, 255, 255, 0.2);
-        border-radius: 50%;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -148,52 +379,234 @@
     }
 
     .app-name {
-        font-size: 18px;
-        font-weight: bold;
+        font-size: 1.1rem;
+        font-weight: 600;
+    }
+
+    .app-name a {
+        color: white;
+        text-decoration: none;
     }
 
     .app-models {
-        padding: 15px;
+        padding: 20px;
     }
 
     .model-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px 15px;
         margin-bottom: 10px;
-        padding-bottom: 10px;
-        border-bottom: 1px solid #f0f0f0;
+        border-radius: 10px;
+        background: #f9f9f9;
+        transition: all 0.3s;
+    }
+
+    .model-item:hover {
+        background: #f2f2f2;
+        transform: translateX(5px);
     }
 
     .model-item:last-child {
         margin-bottom: 0;
-        padding-bottom: 0;
-        border-bottom: none;
     }
 
     .model-name {
-        display: block;
+        display: flex;
+        align-items: center;
+        color: var(--primary);
         font-weight: 500;
-        margin-bottom: 5px;
-        color: #333;
+    }
+
+    .model-name i {
+        margin-right: 10px;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        background: rgba(111, 78, 55, 0.1);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--primary);
     }
 
     .model-links {
         display: flex;
-        gap: 5px;
+        gap: 10px;
     }
 
-    .recent-actions h2 {
-        background-color: #6f4e37;
+    .model-links a {
+        display: inline-flex;
+        align-items: center;
+        padding: 5px 10px;
+        border-radius: 8px;
+        text-decoration: none;
+        font-size: 0.85rem;
+        transition: all 0.3s;
+    }
+
+    .model-links a i {
+        margin-right: 5px;
+    }
+
+    .model-links .addlink {
+        background: rgba(40, 167, 69, 0.1);
+        color: var(--success);
+    }
+
+    .model-links .addlink:hover {
+        background: var(--success);
         color: white;
-        padding: 12px;
-        border-radius: 8px 8px 0 0;
-        margin-top: 0;
     }
 
-    #content-related .module {
+    .model-links .changelink {
+        background: rgba(0, 123, 255, 0.1);
+        color: var(--info);
+    }
+
+    .model-links .changelink:hover {
+        background: var(--info);
+        color: white;
+    }
+
+    .model-links .viewlink {
+        background: rgba(108, 117, 125, 0.1);
+        color: var(--secondary);
+    }
+
+    .model-links .viewlink:hover {
+        background: var(--secondary);
+        color: white;
+    }
+
+    /* Recent actions */
+    .recent-actions-module {
+        border-radius: 15px;
+        overflow: hidden;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
         background: white;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+        transition: all 0.3s;
+    }
+
+    .recent-actions-module:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
+    }
+
+    .recent-actions-header {
+        background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+        color: white;
+        padding: 18px 20px;
+        display: flex;
+        align-items: center;
+    }
+
+    .recent-actions-icon {
+        width: 32px;
+        height: 32px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 15px;
+        font-size: 16px;
+    }
+
+    .recent-actions-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        margin: 0;
+    }
+
+    .actionlist {
+        padding: 20px;
+        margin: 0;
+        list-style-type: none;
+    }
+
+    .actionlist li {
+        padding: 12px 15px;
+        margin-bottom: 10px;
+        border-radius: 8px;
+        background: #f9f9f9;
+        transition: all 0.3s;
+        border-left: 3px solid transparent;
+    }
+
+    .actionlist li:hover {
+        background: #f2f2f2;
+        transform: translateX(5px);
+    }
+
+    .actionlist li:last-child {
+        margin-bottom: 0;
+    }
+
+    .actionlist li.addlink {
+        border-left-color: var(--success);
+    }
+
+    .actionlist li.changelink {
+        border-left-color: var(--info);
+    }
+
+    .actionlist li.deletelink {
+        border-left-color: var(--danger);
+    }
+
+    .actionlist i {
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        background: rgba(0, 0, 0, 0.05);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 10px;
+        color: var(--primary);
+    }
+
+    .actionlist li.addlink i {
+        color: var(--success);
+    }
+
+    .actionlist li.changelink i {
+        color: var(--info);
+    }
+
+    .actionlist li.deletelink i {
+        color: var(--danger);
+    }
+
+    .mini {
+        color: #777;
+        font-size: 0.85rem;
+        display: inline-block;
+        margin-left: 40px;
+    }
+
+    /* Media queries */
+    @media (max-width: 992px) {
+        .dashboard-cards {
+            grid-template-columns: repeat(2, 1fr);
+        }
     }
 
     @media (max-width: 768px) {
+        .dashboard-cards {
+            grid-template-columns: 1fr;
+        }
+
+        .action-groups-container {
+            grid-template-columns: 1fr;
+        }
+
+        .action-group-items {
+            grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+        }
+
         .app-list {
             grid-template-columns: 1fr;
         }
@@ -210,86 +623,163 @@
 {% block nav-sidebar %}{% endblock %}
 
 {% block content %}
-<div id="content-main">
-    <!-- แดชบอร์ดการ์ดแสดงสถิติ -->
+<div id="content-main" class="dashboard-container">
+    <!-- Dashboard header -->
+    <div class="dashboard-header">
+        <h1>{{ site_title }}</h1>
+        <p>Quản lý tất cả các hoạt động của quán cà phê tại đây</p>
+    </div>
+
+    <!-- Statistics cards -->
     <div class="dashboard-cards">
         <div class="card">
-            <div class="card-icon">
-                <i class="fas fa-chair"></i>
+            <div class="card-progress">
+                <div class="card-icon">
+                    <i class="fas fa-chair"></i>
+                </div>
             </div>
-            <div class="card-title">จำนวนโต๊ะ</div>
+            <div class="card-title">Số bàn</div>
             <div class="card-value">{{ table_count|default:"0" }}</div>
         </div>
         <div class="card">
-            <div class="card-icon">
-                <i class="fas fa-utensils"></i>
+            <div class="card-progress">
+                <div class="card-icon">
+                    <i class="fas fa-utensils"></i>
+                </div>
             </div>
-            <div class="card-title">รายการเมนู</div>
+            <div class="card-title">Số món</div>
             <div class="card-value">{{ menu_count|default:"0" }}</div>
         </div>
         <div class="card">
-            <div class="card-icon">
-                <i class="fas fa-clipboard-list"></i>
+            <div class="card-progress">
+                <div class="card-icon">
+                    <i class="fas fa-clipboard-list"></i>
+                </div>
             </div>
-            <div class="card-title">ออร์เดอร์วันนี้</div>
+            <div class="card-title">Đơn hôm nay</div>
             <div class="card-value">{{ order_count|default:"0" }}</div>
         </div>
         <div class="card">
-            <div class="card-icon">
-                <i class="fas fa-money-bill-wave"></i>
+            <div class="card-progress">
+                <div class="card-icon">
+                    <i class="fas fa-money-bill-wave"></i>
+                </div>
             </div>
-            <div class="card-title">รายได้วันนี้</div>
+            <div class="card-title">Doanh thu hôm nay</div>
             <div class="card-value">{{ today_revenue|default:"0"|floatformat:0|intcomma }} đ</div>
         </div>
     </div>
 
-    <!-- ลิงก์ด่วน -->
-    <div class="quick-links">
-        <h2><i class="fas fa-tasks me-2"></i>การจัดการหลัก</h2>
-        <a href="{% url 'admin:tables_table_changelist' %}">
-            <i class="fas fa-table me-2"></i> จัดการโต๊ะ
-        </a>
-        <a href="{% url 'admin:menu_menuitem_changelist' %}">
-            <i class="fas fa-coffee me-2"></i> จัดการเมนู
-        </a>
-        <a href="{% url 'admin:orders_order_changelist' %}">
-            <i class="fas fa-receipt me-2"></i> จัดการออร์เดอร์
-        </a>
-        <a href="{% url 'admin:customers_customer_changelist' %}">
-            <i class="fas fa-users me-2"></i> จัดการลูกค้า
-        </a>
-        <a href="{% url 'admin:auth_user_changelist' %}">
-            <i class="fas fa-user-cog me-2"></i> จัดการผู้ใช้
-        </a>
+    <!-- Action groups -->
+    <div class="action-groups-container">
+        <!-- Management group -->
+        <div class="action-group">
+            <div class="action-group-header">
+                <div class="action-group-icon">
+                    <i class="fas fa-tasks"></i>
+                </div>
+                <h2 class="action-group-title">Quản lý cửa hàng</h2>
+            </div>
+            <div class="action-group-items">
+                <a href="{% url 'admin:tables_table_changelist' %}" class="action-item">
+                    <div class="action-item-icon">
+                        <i class="fas fa-chair"></i>
+                    </div>
+                    <span>Quản lý bàn</span>
+                    <div class="item-count">{{ table_count|default:"0" }} bàn</div>
+                </a>
+                <a href="{% url 'admin:menu_menuitem_changelist' %}" class="action-item">
+                    <div class="action-item-icon">
+                        <i class="fas fa-coffee"></i>
+                    </div>
+                    <span>Quản lý thực đơn</span>
+                    <div class="item-count">{{ menu_count|default:"0" }} món</div>
+                </a>
+                <a href="{% url 'admin:orders_order_changelist' %}" class="action-item">
+                    <div class="action-item-icon">
+                        <i class="fas fa-receipt"></i>
+                    </div>
+                    <span>Quản lý đơn hàng</span>
+                    <div class="item-count">{{ order_count|default:"0" }} đơn hôm nay</div>
+                </a>
+                <a href="{% url 'admin:customers_customer_changelist' %}" class="action-item">
+                    <div class="action-item-icon">
+                        <i class="fas fa-users"></i>
+                    </div>
+                    <span>Quản lý khách hàng</span>
+                    <div class="item-count">{{ customer_count|default:"0" }} khách</div>
+                </a>
+                <a href="{% url 'admin:auth_user_changelist' %}" class="action-item">
+                    <div class="action-item-icon">
+                        <i class="fas fa-user-cog"></i>
+                    </div>
+                    <span>Quản lý người dùng</span>
+                    <div class="item-count">{{ user_count|default:"0" }} tài khoản</div>
+                </a>
+            </div>
+        </div>
+
+        <!-- Add new group -->
+        <div class="action-group">
+            <div class="action-group-header">
+                <div class="action-group-icon">
+                    <i class="fas fa-plus-circle"></i>
+                </div>
+                <h2 class="action-group-title">Thêm mới nhanh</h2>
+            </div>
+            <div class="action-group-items">
+                <a href="{% url 'admin:tables_table_add' %}" class="action-item">
+                    <div class="action-item-icon">
+                        <i class="fas fa-plus"></i>
+                    </div>
+                    <span>Thêm bàn mới</span>
+                    <div class="item-count">Tạo bàn mới</div>
+                </a>
+                <a href="{% url 'admin:menu_menuitem_add' %}" class="action-item">
+                    <div class="action-item-icon">
+                        <i class="fas fa-utensil-spoon"></i>
+                    </div>
+                    <span>Thêm món mới</span>
+                    <div class="item-count">Tạo món ăn/đồ uống</div>
+                </a>
+                <a href="{% url 'admin:orders_order_add' %}" class="action-item">
+                    <div class="action-item-icon">
+                        <i class="fas fa-file-invoice"></i>
+                    </div>
+                    <span>Tạo đơn hàng</span>
+                    <div class="item-count">Thêm đơn mới</div>
+                </a>
+                <a href="{% url 'admin:customers_customer_add' %}" class="action-item">
+                    <div class="action-item-icon">
+                        <i class="fas fa-user-plus"></i>
+                    </div>
+                    <span>Thêm khách hàng</span>
+                    <div class="item-count">Tạo tài khoản khách</div>
+                </a>
+            </div>
+        </div>
     </div>
 
-    <!-- เพิ่มใหม่ด่วน -->
-    <div class="quick-links">
-        <h2><i class="fas fa-plus-circle me-2"></i>เพิ่มรายการใหม่</h2>
-        <a href="{% url 'admin:tables_table_add' %}">
-            <i class="fas fa-plus-circle me-2"></i> เพิ่มโต๊ะใหม่
-        </a>
-        <a href="{% url 'admin:menu_menuitem_add' %}">
-            <i class="fas fa-plus-circle me-2"></i> เพิ่มเมนูใหม่
-        </a>
-        <a href="{% url 'admin:orders_order_add' %}">
-            <i class="fas fa-plus-circle me-2"></i> เพิ่มออร์เดอร์
-        </a>
-        <a href="{% url 'admin:customers_customer_add' %}">
-            <i class="fas fa-plus-circle me-2"></i> เพิ่มลูกค้า
-        </a>
-    </div>
-
+    <!-- All apps section - Improved design -->
     {% if app_list %}
-    <div class="app-section">
-        <h2><i class="fas fa-th-large me-2"></i>{% trans 'แอปพลิเคชันทั้งหมด' %}</h2>
+    <div class="apps-section">
+        <div class="section-header">
+            <div class="section-icon">
+                <i class="fas fa-th-large"></i>
+            </div>
+            <h2 class="section-title">Tất cả ứng dụng</h2>
+        </div>
         <div class="app-list">
             {% for app in app_list %}
             <div class="app-item">
                 <div class="app-header">
                     <div class="app-icon">
-                        {% if app.app_label == 'auth' or app.app_label == 'users' %}
-                        <i class="fas fa-users"></i>
+                        {% if app.app_label == 'auth' %}
+                        <i class="fas fa-shield-alt"></i>
+                        {% elif app.app_label == 'admin' %}
+                        <i class="fas fa-cogs"></i>
+                        {% elif app.app_label == 'users' %}
+                        <i class="fas fa-user-shield"></i>
                         {% elif app.app_label == 'menu' %}
                         <i class="fas fa-utensils"></i>
                         {% elif app.app_label == 'tables' %}
@@ -300,27 +790,96 @@
                         <i class="fas fa-user-friends"></i>
                         {% elif app.app_label == 'cart' %}
                         <i class="fas fa-shopping-cart"></i>
+                        {% elif app.app_label == 'sessions' %}
+                        <i class="fas fa-key"></i>
+                        {% elif app.app_label == 'sites' %}
+                        <i class="fas fa-globe"></i>
+                        {% elif app.app_label == 'contenttypes' %}
+                        <i class="fas fa-file-alt"></i>
                         {% else %}
-                        <i class="fas fa-cube"></i>
+                        <i class="fas fa-puzzle-piece"></i>
                         {% endif %}
                     </div>
                     <div class="app-name">
-                        <a href="{{ app.app_url }}" class="text-white">{{ app.name }}</a>
+                        <a href="{{ app.app_url }}">
+                            {% if app.app_label == 'auth' %}
+                            Xác thực & Phân quyền
+                            {% elif app.app_label == 'admin' %}
+                            Quản trị
+                            {% elif app.app_label == 'menu' %}
+                            Thực đơn
+                            {% elif app.app_label == 'tables' %}
+                            Bàn
+                            {% elif app.app_label == 'orders' %}
+                            Đơn hàng
+                            {% elif app.app_label == 'customers' %}
+                            Khách hàng
+                            {% elif app.app_label == 'cart' %}
+                            Giỏ hàng
+                            {% elif app.app_label == 'sessions' %}
+                            Phiên đăng nhập
+                            {% elif app.app_label == 'sites' %}
+                            Trang web
+                            {% elif app.app_label == 'contenttypes' %}
+                            Loại nội dung
+                            {% else %}
+                            {{ app.name }}
+                            {% endif %}
+                        </a>
                     </div>
                 </div>
                 <div class="app-models">
                     {% for model in app.models %}
                     <div class="model-item">
-                        <span class="model-name">{{ model.name }}</span>
+                        <span class="model-name">
+                            {% if model.object_name == 'User' %}
+                            <i class="fas fa-user-lock"></i>
+                            Người dùng
+                            {% elif model.object_name == 'Group' %}
+                            <i class="fas fa-users-cog"></i>
+                            Nhóm người dùng
+                            {% elif model.object_name == 'MenuItem' %}
+                            <i class="fas fa-hamburger"></i>
+                            Món ăn
+                            {% elif model.object_name == 'Table' %}
+                            <i class="fas fa-chair"></i>
+                            Bàn
+                            {% elif model.object_name == 'Order' %}
+                            <i class="fas fa-file-invoice"></i>
+                            Đơn hàng
+                            {% elif model.object_name == 'OrderItem' %}
+                            <i class="fas fa-list-alt"></i>
+                            Chi tiết đơn hàng
+                            {% elif model.object_name == 'Customer' %}
+                            <i class="fas fa-user"></i>
+                            Khách hàng
+                            {% elif model.object_name == 'CartItem' %}
+                            <i class="fas fa-shopping-basket"></i>
+                            Món trong giỏ hàng
+                            {% elif model.object_name == 'Session' %}
+                            <i class="fas fa-key"></i>
+                            Phiên đăng nhập
+                            {% elif model.object_name == 'Site' %}
+                            <i class="fas fa-globe"></i>
+                            Trang web
+                            {% elif model.object_name == 'ContentType' %}
+                            <i class="fas fa-file-alt"></i>
+                            Loại nội dung
+                            {% else %}
+                            <i class="fas fa-cube"></i>
+                            {{ model.name }}
+                            {% endif %}
+                        </span>
                         <div class="model-links">
                             {% if model.add_url %}
-                            <a href="{{ model.add_url }}" class="addlink">{% trans 'Add' %}</a>
+                            <a href="{{ model.add_url }}" class="addlink">
+                                <i class="fas fa-plus"></i>Thêm
+                            </a>
                             {% endif %}
                             {% if model.admin_url %}
-                            <a href="{{ model.admin_url }}" class="changelink">{% trans 'Change' %}</a>
-                            {% endif %}
-                            {% if model.view_only %}
-                            <a href="{{ model.admin_url }}" class="viewlink">{% trans 'View' %}</a>
+                            <a href="{{ model.admin_url }}" class="changelink">
+                                <i class="fas fa-edit"></i>Xem
+                            </a>
                             {% endif %}
                         </div>
                     </div>
@@ -336,17 +895,27 @@
 
 {% block sidebar %}
 <div id="content-related">
-    <div class="module" id="recent-actions-module">
-        <h2>{% trans 'การกระทำล่าสุด' %}</h2>
+    <div class="recent-actions-module">
+        <div class="recent-actions-header">
+            <div class="recent-actions-icon">
+                <i class="fas fa-history"></i>
+            </div>
+            <h2 class="recent-actions-title">Hoạt động gần đây</h2>
+        </div>
         {% load log %}
         {% get_admin_log 10 as admin_log for_user user %}
         {% if not admin_log %}
-        <p>{% trans 'None available' %}</p>
+        <div style="padding: 20px; text-align: center;">
+            <i class="fas fa-inbox" style="font-size: 24px; color: #ccc; margin-bottom: 10px;"></i>
+            <p style="margin: 0; color: #777;">Chưa có hoạt động nào gần đây</p>
+        </div>
         {% else %}
         <ul class="actionlist">
             {% for entry in admin_log %}
             <li
                 class="{% if entry.is_addition %}addlink{% endif %}{% if entry.is_change %}changelink{% endif %}{% if entry.is_deletion %}deletelink{% endif %}">
+                <i
+                    class="fas {% if entry.is_addition %}fa-plus-circle{% elif entry.is_change %}fa-edit{% elif entry.is_deletion %}fa-trash-alt{% else %}fa-dot-circle{% endif %}"></i>
                 {% if entry.is_deletion or not entry.get_admin_url %}
                 {{ entry.object_repr }}
                 {% else %}
@@ -354,9 +923,29 @@
                 {% endif %}
                 <br>
                 {% if entry.content_type %}
-                <span class="mini quiet">{% filter capfirst %}{{ entry.content_type.name }}{% endfilter %}</span>
+                <span class="mini">
+                    {% if entry.content_type.name == 'user' %}
+                    Người dùng
+                    {% elif entry.content_type.name == 'group' %}
+                    Nhóm người dùng
+                    {% elif entry.content_type.name == 'menu item' %}
+                    Món ăn
+                    {% elif entry.content_type.name == 'table' %}
+                    Bàn
+                    {% elif entry.content_type.name == 'order' %}
+                    Đơn hàng
+                    {% elif entry.content_type.name == 'order item' %}
+                    Chi tiết đơn hàng
+                    {% elif entry.content_type.name == 'customer' %}
+                    Khách hàng
+                    {% elif entry.content_type.name == 'cart item' %}
+                    Món trong giỏ hàng
+                    {% else %}
+                    {% filter capfirst %}{{ entry.content_type.name }}{% endfilter %}
+                    {% endif %}
+                </span>
                 {% else %}
-                <span class="mini quiet">{% trans 'Unknown content' %}</span>
+                <span class="mini">Không rõ nội dung</span>
                 {% endif %}
             </li>
             {% endfor %}

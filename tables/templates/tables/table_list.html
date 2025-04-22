@@ -1,9 +1,9 @@
 {% extends 'base.html' %}
 
-{% block title %}โต๊ะทั้งหมด - TomCafe{% endblock %}
+{% block title %}Tất cả bàn - TomCafe{% endblock %}
 
-{% block header_text %}เลือกโต๊ะ{% endblock %}
-{% block subheader_text %}เริ่มต้นการสั่งอาหารด้วยการเลือกโต๊ะของคุณ{% endblock %}
+{% block header_text %}Chọn bàn{% endblock %}
+{% block subheader_text %}Bắt đầu đặt món bằng cách chọn bàn của bạn{% endblock %}
 
 {% block content %}
 <div class="container">
@@ -19,32 +19,32 @@
                                 {% if table.status == 'available' %}text-success{% elif table.status == 'occupied' %}text-warning{% else %}text-danger{% endif %}">
                         </i>
                     </div>
-                    <h3 class="card-title">โต๊ะ {{ table.number }}</h3>
+                    <h3 class="card-title">Bàn {{ table.number }}</h3>
                     <p class="card-text">
                         {% if table.status == 'available' %}
-                        <span class="badge bg-success">ว่าง</span>
+                        <span class="badge bg-success">Trống</span>
                         {% elif table.status == 'occupied' %}
-                        <span class="badge bg-warning text-dark">มีลูกค้าใช้งาน</span>
+                        <span class="badge bg-warning text-dark">Có khách sử dụng</span>
                         {% else %}
-                        <span class="badge bg-danger">ไม่พร้อมใช้งาน</span>
+                        <span class="badge bg-danger">Không sẵn sàng</span>
                         {% endif %}
                     </p>
                     <p class="card-text">
-                        <small class="text-muted">ความจุ: {{ table.capacity }} ที่นั่ง</small>
+                        <small class="text-muted">Sức chứa: {{ table.capacity }} chỗ ngồi</small>
                     </p>
                 </div>
-                <div class="card-footer bg-white border-top-0 text-center">
+                <div class="card-footer bg-white border-top-0 text-center" style="height: 100px;">
                     {% if table.status == 'available' %}
                     <a href="{% url 'enter_name' table.id %}" class="btn btn-primary">
-                        <i class="fas fa-utensils me-1"></i> เริ่มสั่งอาหาร
+                        <i class="fas fa-utensils me-1"></i> Bắt đầu đặt món
                     </a>
                     {% elif table.status == 'occupied' %}
                     <a href="{% url 'menu_list' %}?table={{ table.id }}" class="btn btn-outline-primary">
-                        <i class="fas fa-plus me-1"></i> สั่งเพิ่ม
+                        <i class="fas fa-plus me-1"></i> Đặt thêm
                     </a>
                     {% else %}
                     <button class="btn btn-secondary" disabled>
-                        <i class="fas fa-ban me-1"></i> ไม่พร้อมใช้งาน
+                        <i class="fas fa-ban me-1"></i> Không sẵn sàng
                     </button>
                     {% endif %}
                 </div>
@@ -53,7 +53,8 @@
         {% empty %}
         <div class="col-12 text-center py-5">
             <div class="alert alert-info">
-                <i class="fas fa-info-circle me-2"></i> ไม่พบโต๊ะในร้าน โปรดเพิ่มโต๊ะในหน้าผู้ดูแลระบบ
+                <i class="fas fa-info-circle me-2"></i> Không tìm thấy bàn nào trong quán. Vui lòng thêm bàn trong trang
+                quản trị
             </div>
         </div>
         {% endfor %}

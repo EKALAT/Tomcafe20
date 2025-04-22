@@ -1,10 +1,10 @@
 {% extends 'base.html' %}
 {% load humanize %}
 
-{% block title %}ตะกร้าสินค้า - TomCafe{% endblock %}
+{% block title %}Giỏ hàng - TomCafe{% endblock %}
 
-{% block header_text %}ตะกร้าสินค้า{% endblock %}
-{% block subheader_text %}รายการสินค้าที่คุณต้องการสั่งซื้อ{% endblock %}
+{% block header_text %}Giỏ hàng{% endblock %}
+{% block subheader_text %}Danh sách các món bạn muốn đặt{% endblock %}
 
 {% block content %}
 <div class="container">
@@ -13,18 +13,18 @@
             {% if cart_items %}
             <div class="card shadow mb-4">
                 <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0"><i class="fas fa-shopping-cart me-2"></i>รายการสินค้า</h5>
+                    <h5 class="mb-0"><i class="fas fa-shopping-cart me-2"></i>Danh sách món</h5>
                 </div>
                 <div class="card-body p-0">
                     <div class="table-responsive">
                         <table class="table table-striped table-hover mb-0">
                             <thead class="table-light">
                                 <tr>
-                                    <th>สินค้า</th>
-                                    <th class="text-center">ราคา</th>
-                                    <th class="text-center">จำนวน</th>
-                                    <th class="text-end">รวม</th>
-                                    <th></th>
+                                    <th>Món</th>
+                                    <th class="text-center">Giá</th>
+                                    <th class="text-center">Số lượng</th>
+                                    <th class="text-end">Tổng</th>
+                                    <th class="text-center"></th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -52,7 +52,7 @@
                                         <form method="post" action="{% url 'update_cart' item.id %}"
                                             class="d-flex justify-content-center">
                                             {% csrf_token %}
-                                            <div class="input-group input-group-sm" style="width: 100px;">
+                                            <div class="input-group input-group-sm" style="width: 120px;">
                                                 <button type="submit" name="action" value="decrease"
                                                     class="btn btn-outline-secondary">
                                                     <i class="fas fa-minus"></i>
@@ -66,8 +66,8 @@
                                             </div>
                                         </form>
                                     </td>
-                                    <td class="text-end fw-bold">{{ item.total|floatformat:0|intcomma }} đ</td>
-                                    <td class="text-end">
+                                    <td class="text-center fw-bold">{{ item.total|floatformat:0|intcomma }} đ</td>
+                                    <td class="text-center">
                                         <form method="post" action="{% url 'remove_from_cart' item.id %}">
                                             {% csrf_token %}
                                             <button type="submit" class="btn btn-sm btn-outline-danger">
@@ -88,10 +88,10 @@
                     <div class="mb-4">
                         <i class="fas fa-shopping-cart fa-4x text-muted"></i>
                     </div>
-                    <h3>ตะกร้าของคุณว่างเปล่า</h3>
-                    <p class="mb-4">ยังไม่มีรายการสินค้าในตะกร้า เริ่มสั่งซื้อกันเลย!</p>
+                    <h3>Giỏ hàng của bạn đang trống</h3>
+                    <p class="mb-4">Chưa có món nào trong giỏ hàng, hãy bắt đầu đặt ngay!</p>
                     <a href="{% url 'menu_list' %}" class="btn btn-primary btn-lg">
-                        <i class="fas fa-utensils me-2"></i>ดูเมนูของเรา
+                        <i class="fas fa-utensils me-2"></i>Xem thực đơn của chúng tôi
                     </a>
                 </div>
             </div>
@@ -102,32 +102,32 @@
         <div class="col-lg-4">
             <div class="card shadow">
                 <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0"><i class="fas fa-receipt me-2"></i>สรุปคำสั่งซื้อ</h5>
+                    <h5 class="mb-0"><i class="fas fa-receipt me-2"></i>Tóm tắt đơn hàng</h5>
                 </div>
                 <div class="card-body">
                     <div class="d-flex justify-content-between mb-3">
-                        <span>จำนวนรายการ:</span>
-                        <strong>{{ total_items }} รายการ</strong>
+                        <span>Số lượng mục:</span>
+                        <strong>{{ total_items }} món</strong>
                     </div>
                     <div class="d-flex justify-content-between mb-3">
-                        <span>ราคารวม:</span>
+                        <span>Tổng tiền:</span>
                         <strong>{{ cart_total|floatformat:0|intcomma }} đ</strong>
                     </div>
                     <hr>
                     <div class="d-flex justify-content-between mb-3">
-                        <span>ชื่อลูกค้า:</span>
+                        <span>Tên khách hàng:</span>
                         <strong>{{ customer_name }}</strong>
                     </div>
                     <div class="d-flex justify-content-between mb-4">
-                        <span>โต๊ะ:</span>
+                        <span>Bàn:</span>
                         <strong>{{ table_number }}</strong>
                     </div>
                     <div class="d-grid gap-2">
-                        <a href="{% url 'confirm_order' %}" class="btn btn-success btn-lg">
-                            <i class="fas fa-check-circle me-2"></i>ยืนยันคำสั่งซื้อ
+                        <a href="{% url 'confirm_order' %}" class="btn btn-success btn-lg" style="font-family: 'Be Vietnam Pro', sans-serif;">
+                            <i class="fas fa-check-circle me-2"></i>Xác nhận đơn hàng
                         </a>
-                        <a href="{% url 'menu_list' %}" class="btn btn-outline-primary">
-                            <i class="fas fa-arrow-left me-2"></i>เลือกเมนูเพิ่มเติม
+                        <a href="{% url 'menu_list' %}" class="btn btn-outline-primary" style="font-family: 'Be Vietnam Pro', sans-serif;">
+                            <i class="fas fa-arrow-left me-2"></i>Chọn thêm món
                         </a>
                     </div>
                 </div>

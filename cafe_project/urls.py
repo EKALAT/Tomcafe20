@@ -5,9 +5,9 @@ from django.views.generic import RedirectView
 from cafe_project.admin import tomcafe_admin_site
 
 urlpatterns = [
-    path('', RedirectView.as_view(url='menu/', permanent=False)),  # สร้าง redirect สำหรับหน้าแรก
-    path('grappelli/', include('grappelli.urls')),  # URL สำหรับ Grappelli
-    path('admin/', tomcafe_admin_site.urls),  # ใช้ CustomAdmin แทน admin.site เดิม
+    path('', RedirectView.as_view(url='tables/', permanent=False)),  # Redirect cho trang chủ
+    path('grappelli/', include('grappelli.urls')),  # URL cho Grappelli
+    path('admin/', tomcafe_admin_site.urls),  # Sử dụng CustomAdmin thay cho admin.site
     path('tables/', include('tables.urls')),
     path('menu/', include('menu.urls')),
     path('cart/', include('cart.urls')),
@@ -15,7 +15,9 @@ urlpatterns = [
     path('customers/', include('customers.urls')),
 ]
 
-# เพิ่ม URL pattern สำหรับไฟล์ media เมื่ออยู่ใน debug mode
+# Phục vụ file media trong mọi trường hợp (cả debug và production)
+urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
+# Phục vụ file static chỉ trong môi trường debug
 if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

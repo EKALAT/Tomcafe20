@@ -1,9 +1,9 @@
 {% extends 'base.html' %}
 
-{% block title %}ลงทะเบียนลูกค้า - TomCafe{% endblock %}
+{% block title %}Đăng ký khách hàng - TomCafe{% endblock %}
 
-{% block header_text %}ลงทะเบียนลูกค้า{% endblock %}
-{% block subheader_text %}กรุณากรอกชื่อของคุณเพื่อเริ่มสั่งอาหาร{% endblock %}
+{% block header_text %}Đăng ký khách hàng{% endblock %}
+{% block subheader_text %}Vui lòng nhập tên của bạn để bắt đầu đặt món{% endblock %}
 
 {% block content %}
 <div class="container">
@@ -11,28 +11,28 @@
         <div class="col-md-6">
             <div class="card shadow">
                 <div class="card-header bg-primary text-white">
-                    <h4 class="mb-0"><i class="fas fa-user me-2"></i>ข้อมูลลูกค้า - โต๊ะ {{ table_id }}</h4>
+                    <h4 class="mb-0"><i class="fas fa-user me-2"></i>Thông tin khách hàng - Bàn {{ table_id }}</h4>
                 </div>
                 <div class="card-body">
                     <form method="post">
                         {% csrf_token %}
                         <div class="mb-3">
-                            <label for="name" class="form-label">ชื่อของคุณ</label>
+                            <label for="name" class="form-label">Tên của bạn</label>
                             <div class="input-group">
                                 <span class="input-group-text"><i class="fas fa-user"></i></span>
                                 <input type="text" class="form-control" id="name" name="name"
-                                    placeholder="กรอกชื่อของคุณ" required>
+                                    placeholder="Nhập tên của bạn" required>
                             </div>
                         </div>
                         <div class="d-grid gap-2">
                             <button type="submit" class="btn btn-primary btn-lg">
-                                <i class="fas fa-arrow-right me-2"></i>ไปยังหน้าเมนู
+                                <i class="fas fa-arrow-right me-2"></i>Đến trang thực đơn
                             </button>
                         </div>
                     </form>
                 </div>
                 <div class="card-footer text-muted text-center">
-                    <i class="fas fa-lock me-1"></i> ข้อมูลของคุณจะถูกใช้เฉพาะในการสั่งอาหารเท่านั้น
+                    <i class="fas fa-lock me-1"></i> Thông tin của bạn chỉ được sử dụng cho việc đặt món
                 </div>
             </div>
         </div>

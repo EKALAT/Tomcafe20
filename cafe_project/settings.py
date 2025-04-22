@@ -26,7 +26,7 @@ SECRET_KEY = 'django-insecure-_j$9%rtla=q%a+@@(qsi5p-fp50-cekccb(#@26)-j-86n5(et
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '127.0.0.1:8000']
 
 
 # Application definition
@@ -150,6 +150,6 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 DEBUG_SERVE_STATIC = True
 
 # Grappelli Settings
-GRAPPELLI_ADMIN_TITLE = "TomCafe ระบบจัดการร้านกาแฟ"
+GRAPPELLI_ADMIN_TITLE = "TomCafe - Hệ thống quản lý quán cà phê"
 GRAPPELLI_SWITCH_USER = True
 GRAPPELLI_INDEX_DASHBOARD = 'tomcafe_20.cafe_project.dashboard.CustomIndexDashboard'
