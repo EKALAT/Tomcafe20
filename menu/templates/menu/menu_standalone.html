@@ -137,6 +137,17 @@
 
 {% block content %}
 <div class="container">
+    <!-- Hiển thị thông tin bàn đã chọn -->
+    <div class="alert alert-info mb-4">
+        <div class="d-flex align-items-center">
+            <i class="fas fa-chair fa-2x me-3"></i>
+            <div>
+                <h5 class="mb-0">Bàn đã chọn: <strong>Bàn {{ table_number }}</strong></h5>
+                <small>Khách hàng: {{ request.session.customer_name }}</small>
+            </div>
+        </div>
+    </div>
+
     <div class="category-filter">
         <a href="{% url 'menu_list' %}" class="btn category-btn {% if not category %}active{% endif %}">
             <i class="fas fa-utensils me-2"></i>Tất cả

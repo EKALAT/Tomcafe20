@@ -1,0 +1,18 @@
+{% extends "admin/change_list.html" %}
+{% load i18n admin_urls %}
+
+{% block object-tools-items %}
+{{ block.super }}
+<li>
+    <a href="{% url 'admin:export_daily_excel' %}" class="grp-state-focus" style="background-color: #28a745;"
+        target="_blank">
+        <i class="fas fa-file-excel"></i> {% trans 'Xuất Excel ngày' %}
+    </a>
+</li>
+<li>
+    <a href="{% url 'admin:export_monthly_excel' %}" class="grp-state-focus" style="background-color: #17a2b8;"
+        target="_blank">
+        <i class="fas fa-file-excel"></i> {% trans 'Xuất Excel tháng' %}
+    </a>
+</li>
+{% endblock %}

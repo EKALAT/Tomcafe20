@@ -1,0 +1,109 @@
+{% extends "grappelli/dashboard/module.html" %}
+
+{% block module_content %}
+<style>
+    .revenue-summary {
+        padding: 15px;
+    }
+
+    .revenue-card {
+        background-color: #fff;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        padding: 15px;
+        margin-bottom: 15px;
+        text-align: center;
+        transition: all 0.3s ease;
+    }
+
+    .revenue-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    .revenue-value {
+        font-size: 24px;
+        font-weight: bold;
+        color: #28a745;
+        margin: 10px 0;
+    }
+
+    .revenue-title {
+        font-size: 14px;
+        font-weight: 500;
+        color: #6c757d;
+    }
+
+    .revenue-period {
+        font-size: 12px;
+        color: #6c757d;
+    }
+
+    .revenue-progress {
+        height: 8px;
+        border-radius: 4px;
+        margin: 15px 0;
+    }
+
+    .card-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 15px;
+    }
+
+    .revenue-report-link {
+        display: block;
+        text-align: center;
+        margin-top: 15px;
+        padding: 8px;
+        background-color: #28a745;
+        color: white;
+        border-radius: 4px;
+        text-decoration: none;
+        font-weight: 500;
+        transition: background-color 0.3s;
+    }
+
+    .revenue-report-link:hover {
+        background-color: #218838;
+        color: white;
+    }
+</style>
+
+<div class="revenue-summary">
+    <div class="card-grid">
+        <div class="revenue-card">
+            <div class="revenue-title">Tổng doanh thu</div>
+            <div class="revenue-value">{{ module.revenue_data.total_revenue|floatformat:0 }} đ</div>
+            <div class="revenue-period">Tháng {{ module.revenue_data.current_month }}/{{
+                module.revenue_data.current_year }}</div>
+        </div>
+        <div class="revenue-card">
+            <div class="revenue-title">Tổng đơn hàng</div>
+            <div class="revenue-value">{{ module.revenue_data.total_orders }}</div>
+            <div class="revenue-period">Tháng {{ module.revenue_data.current_month }}/{{
+                module.revenue_data.current_year }}</div>
+        </div>
+    </div>
+
+    <div class="revenue-card">
+        <div class="revenue-title">Doanh thu dự kiến cả tháng</div>
+        <div class="revenue-value">{{ module.revenue_data.projected_revenue|floatformat:0 }} đ</div>
+        <div class="revenue-period">Dựa trên {{ module.revenue_data.days_passed }} ngày đầu tháng</div>
+
+        <!-- Progress bar showing days passed in month -->
+        <div class="progress revenue-progress">
+            <div class="progress-bar bg-success" role="progressbar"
+                style="width: {{ module.revenue_data.days_passed|floatformat:0 }}%;"
+                aria-valuenow="{{ module.revenue_data.days_passed }}" aria-valuemin="0"
+                aria-valuemax="{{ module.revenue_data.total_days }}">
+                {{ module.revenue_data.days_passed }}/{{ module.revenue_data.total_days }} ngày
+            </div>
+        </div>
+    </div>
+
+    <a href="{% url 'monthly_revenue_report' %}" class="revenue-report-link">
+        Xem báo cáo doanh thu chi tiết
+    </a>
+</div>
+{% endblock %}

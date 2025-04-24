@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+
+{% block title %}Đặt hàng thành công - TomCafe{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center mt-5">
+        <div class="col-md-8">
+            <div class="card shadow-lg">
+                <div class="card-header bg-success text-white">
+                    <h3 class="mb-0"><i class="fas fa-check-circle me-2"></i>Đặt hàng thành công</h3>
+                </div>
+                <div class="card-body text-center py-5">
+                    <i class="fas fa-utensils fa-5x text-success mb-4"></i>
+                    <h4 class="mb-4" style="font-family: 'Be Vietnam Pro', 'Nunito', sans-serif;">Cảm ơn bạn đã đặt món,
+                        {{ customer_name }}!</h4>
+
+                    <p class="lead mb-4">
+                        Đơn hàng của bạn đã được gửi tới nhà bếp và sẽ được phục vụ trong thời gian sớm nhất.
+                    </p>
+
+                    <div class="alert alert-info">
+                        <i class="fas fa-bell me-2"></i>Nhân viên đã nhận được thông báo về đơn hàng của bạn.
+                    </div>
+                    <div class="alert alert-success">
+                        <i class="fas fa-info-circle me-2"></i>Nhân viên sẽ mang món tới bàn của bạn trong vài phút.
+                    </div>
+                </div>
+                <div class="card-footer">
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'menu_list' %}" class="btn btn-primary btn-lg">
+                            <i class="fas fa-utensils me-2"></i>Đặt thêm món
+                        </a>
+                        <a href="{% url 'table_list' %}" class="btn btn-outline-secondary mt-2">
+                            <i class="fas fa-home me-2"></i>Về trang chủ
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

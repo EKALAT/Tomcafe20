@@ -1,0 +1,57 @@
+/* Tùy chỉnh CSS cho trang admin TomCafe */
+
+/* Làm cho div action-group lớn hơn */
+.action-group {
+    font-size: 120% !important;
+    padding: 15px !important;
+    margin: 15px 0 !important;
+    background-color: #f8f9fa !important;
+    border-radius: 8px !important;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Làm cho các nút trong action-group lớn hơn */
+.action-group .button,
+.action-group input[type="submit"],
+.action-group input[type="button"],
+.action-group .btn {
+    padding: 10px 15px !important;
+    font-size: 110% !important;
+    margin-right: 10px !important;
+    border-radius: 5px !important;
+}
+
+/* Làm cho dropdown trong action-group lớn hơn */
+.action-group select {
+    padding: 8px 10px !important;
+    font-size: 110% !important;
+    height: auto !important;
+    min-width: 200px !important;
+}
+
+/* Tăng kích thước chữ cho label trong action-group */
+.action-group label {
+    font-size: 115% !important;
+    margin-right: 10px !important;
+    font-weight: 500 !important;
+}
+
+/* Tăng khoảng cách giữa các phần tử */
+.action-group>* {
+    margin: 5px !important;
+}
+
+/* Tùy chỉnh màu sắc nút Go */
+.action-group .button.go {
+    background-color: #6f4e37 !important;
+    /* Màu cà phê */
+    color: white !important;
+    font-weight: bold !important;
+    transition: all 0.3s !important;
+}
+
+.action-group .button.go:hover {
+    background-color: #b87333 !important;
+    /* Màu cà phê nhạt khi hover */
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2) !important;
+}

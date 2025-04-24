@@ -1,11 +1,11 @@
 {% extends 'base.html' %}
 {% load humanize %}
 
-{% block title %}ยืนยันคำสั่งซื้อ - TomCafe{% endblock %}
+{% block title %}Xác nhận đơn hàng - TomCafe{% endblock %}
 
 {% block content %}
 <div class="container">
-    <h1 class="mt-5">ยืนยันคำสั่งซื้อ</h1>
+    <h1 class="mt-5">Xác nhận đơn hàng</h1>
 
     <div class="row">
         <div class="col-md-8">
@@ -19,10 +19,10 @@
                         <table class="table">
                             <thead>
                                 <tr>
-                                    <th>รายการ</th>
-                                    <th class="text-center">ราคา</th>
-                                    <th class="text-center">จำนวน</th>
-                                    <th class="text-end">รวม</th>
+                                    <th>Món</th>
+                                    <th class="text-center">Giá</th>
+                                    <th class="text-center">Số lượng</th>
+                                    <th class="text-end">Tổng</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -37,7 +37,7 @@
                             </tbody>
                             <tfoot>
                                 <tr>
-                                    <th colspan="3" class="text-end">รวมทั้งสิ้น</th>
+                                    <th colspan="3" class="text-end">Tổng cộng</th>
                                     <th class="text-end">{{ total|floatformat:0|intcomma }} đ</th>
                                 </tr>
                             </tfoot>
@@ -45,7 +45,7 @@
                     </div>
                     {% else %}
                     <div class="alert alert-warning">
-                        ไม่มีสินค้าในตะกร้า กรุณาเลือกเมนูก่อน
+                        Không có món nào trong giỏ hàng, vui lòng chọn món trước
                     </div>
                     {% endif %}
                 </div>
@@ -55,23 +55,24 @@
         <div class="col-md-4">
             <div class="card">
                 <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0">ข้อมูลการสั่งซื้อ</h5>
+                    <h5 class="mb-0">Thông tin đơn hàng</h5>
                 </div>
                 <div class="card-body">
-                    <p><strong>ชื่อลูกค้า:</strong> {{ customer_name }}</p>
-                    <p><strong>โต๊ะ:</strong> {{ table_number }}</p>
-                    <p><strong>จำนวนรายการ:</strong> {{ cart_items|length }}</p>
-                    <p><strong>ยอดรวม:</strong> {{ total|floatformat:0|intcomma }} đ</p>
+                    <p><strong>Tên khách hàng:</strong> {{ customer_name }}</p>
+                    <p><strong>Bàn số:</strong> {{ table_number }}</p>
+                    <p><strong>Số lượng món:</strong> {{ cart_items|length }}</p>
+                    <p><strong>Tổng tiền:</strong> {{ total|floatformat:0|intcomma }} đ</p>
 
                     <form method="post" action="{% url 'confirm_order' %}">
                         {% csrf_token %}
-                        <button type="submit" class="btn btn-success btn-lg w-100 mt-3">
-                            <i class="fas fa-check-circle me-2"></i>ยืนยันคำสั่งซื้อ
+                        <input type="hidden" name="table_id" value="{{ table_id }}">
+                        <button type="submit" class="btn btn-success btn-lg w-100 mt-3" style="font-family: 'Be Vietnam Pro', sans-serif;">
+                            <i class="fas fa-check-circle me-2"></i>Xác nhận đơn hàng
                         </button>
                     </form>
 
-                    <a href="{% url 'menu_list' %}" class="btn btn-outline-primary w-100 mt-2">
-                        <i class="fas fa-arrow-left me-2"></i>กลับไปเลือกเมนูเพิ่มเติม
+                    <a href="{% url 'menu_list' %}" class="btn btn-outline-primary w-100 mt-2" style="font-family: 'Be Vietnam Pro', sans-serif;">
+                        <i class="fas fa-arrow-left me-2"></i>Quay lại chọn thêm món
                     </a>
                 </div>
             </div>

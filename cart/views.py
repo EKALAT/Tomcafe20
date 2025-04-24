@@ -1,11 +1,27 @@
 from django.shortcuts import render, redirect
 from menu.models import MenuItem
+from tables.models import Table
 
 
 def view_cart(request):
     cart = request.session.get('cart', {})
     cart_items = []
     total = 0
+    
+    # Lấy thông tin table_id từ session
+    table_id = request.session.get('table_id', 1)
+    
+    # Lấy table_number từ table_id
+    try:
+        table = Table.objects.get(id=table_id)
+        table_number = table.number
+    except Table.DoesNotExist:
+        table_number = "Không xác định"
+    except:
+        table_number = "Không xác định"
+    
+    # Debug thông tin
+    print(f"VIEW_CART: session table_id={table_id}, table_number={table_number}")
     
     for item_id, quantity in cart.items():
         try:
@@ -29,7 +45,8 @@ def view_cart(request):
         'total_items': len(cart_items),
         'cart_total': total,
         'customer_name': request.session.get('customer_name', 'Guest'),
-        'table_number': request.session.get('table_number', '1')
+        'table_id': table_id,
+        'table_number': table_number
     }
     
     return render(request, 'cart/cart_detail.html', context)

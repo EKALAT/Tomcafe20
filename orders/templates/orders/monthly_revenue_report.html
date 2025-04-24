@@ -1,0 +1,456 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Báo Cáo Doanh Thu Tháng {{ month }}/{{ year }} - TomCafe{% endblock %}
+
+{% block extra_head %}
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+    .revenue-card {
+        border-radius: 10px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        padding: 20px;
+        margin-bottom: 20px;
+        transition: all 0.3s;
+    }
+
+    .revenue-card:hover {
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+        transform: translateY(-5px);
+    }
+
+    .revenue-number {
+        font-size: 2.5rem;
+        font-weight: bold;
+        color: #28a745;
+    }
+
+    .revenue-title {
+        font-size: 1.2rem;
+        color: #6c757d;
+    }
+
+    .chart-container {
+        position: relative;
+        height: 300px;
+        margin-bottom: 30px;
+    }
+
+    .filters {
+        background-color: #f8f9fa;
+        padding: 15px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+    }
+
+    .nav-tabs .nav-link {
+        border: none;
+        color: #495057;
+        font-weight: 500;
+        padding: 10px 15px;
+        margin-right: 5px;
+        border-radius: 10px 10px 0 0;
+    }
+
+    .nav-tabs .nav-link.active {
+        background-color: #f8f9fa;
+        color: #28a745;
+        border-bottom: 3px solid #28a745;
+    }
+
+    .comparison-chart {
+        background-color: #fff;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">Báo Cáo Doanh Thu Tháng {{ month }}/{{ year }}</h1>
+
+    <!-- Filters -->
+    <div class="filters">
+        <form method="get" class="row align-items-end">
+            <div class="col-md-4 mb-3">
+                <label for="month">Chọn tháng:</label>
+                <select class="form-control" id="month" name="month">
+                    {% for m_num, m_name in months %}
+                    <option value="{{ m_num }}" {% if m_num==month %}selected{% endif %}>{{ m_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4 mb-3">
+                <label for="year">Chọn năm:</label>
+                <select class="form-control" id="year" name="year">
+                    {% for y in all_years %}
+                    <option value="{{ y }}" {% if y==year %}selected{% endif %}>{{ y }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-4 mb-3">
+                <button type="submit" class="btn btn-primary w-100">Xem báo cáo</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="revenue-card bg-white">
+                <div class="revenue-title">Tổng doanh thu</div>
+                <div class="revenue-number">{{ total_revenue|floatformat:0|stringformat:"s"|slice:":-3" }}.{{
+                    total_revenue|floatformat:0|stringformat:"s"|slice:"-3:" }} đ</div>
+                <small>Tháng {{ month }}/{{ year }}</small>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="revenue-card bg-white">
+                <div class="revenue-title">Tổng số đơn hàng</div>
+                <div class="revenue-number">{{ total_orders }}</div>
+                <small>Đơn hoàn thành trong tháng {{ month }}/{{ year }}</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="row">
+        <!-- Daily Revenue Chart -->
+        <div class="col-lg-8">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5>Doanh thu theo ngày</h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="dailyRevenueChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Category Revenue Chart -->
+        <div class="col-lg-4">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5>Doanh thu theo danh mục</h5>
+                </div>
+                <div class="card-body">
+                    <div class="chart-container">
+                        <canvas id="categoryRevenueChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Revenue Comparison Section -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <ul class="nav nav-tabs card-header-tabs" id="comparisonTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="monthly-tab" data-bs-toggle="tab" data-bs-target="#monthly"
+                        type="button" role="tab" aria-controls="monthly" aria-selected="true">So sánh theo tháng trong
+                        năm {{ year }}</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="yearly-tab" data-bs-toggle="tab" data-bs-target="#yearly" type="button"
+                        role="tab" aria-controls="yearly" aria-selected="false">So sánh theo năm</button>
+                </li>
+            </ul>
+        </div>
+        <div class="card-body">
+            <div class="tab-content" id="comparisonTabsContent">
+                <div class="tab-pane fade show active" id="monthly" role="tabpanel" aria-labelledby="monthly-tab">
+                    <div class="comparison-chart">
+                        <div class="chart-container">
+                            <canvas id="monthlyComparisonChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="tab-pane fade" id="yearly" role="tabpanel" aria-labelledby="yearly-tab">
+                    <div class="comparison-chart">
+                        <div class="chart-container">
+                            <canvas id="yearlyComparisonChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Orders Table -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5>Danh sách đơn hàng trong tháng {{ month }}/{{ year }}</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Mã đơn</th>
+                            <th>Khách hàng</th>
+                            <th>Bàn</th>
+                            <th>Ngày</th>
+                            <th>Tổng tiền</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for order in orders %}
+                        <tr>
+                            <td>#{{ order.id }}</td>
+                            <td>{{ order.customer_name }}</td>
+                            <td>{{ order.table.number }}</td>
+                            <td>{{ order.created_at|date:"d/m/Y H:i" }}</td>
+                            <td>{{ order.get_total|floatformat:0 }} đ</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center">Không có đơn hàng nào trong tháng này</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // Daily Revenue Chart
+        const dailyChartCtx = document.getElementById('dailyRevenueChart').getContext('2d');
+        new Chart(dailyChartCtx, {
+            type: 'bar',
+            data: {
+                labels: {{ days_in_month| safe }},
+        datasets: [
+        {
+            label: 'Doanh thu (đồng)',
+            data: {{ revenue_by_day| safe }},
+        backgroundColor: 'rgba(40, 167, 69, 0.7)',
+        borderColor: 'rgba(40, 167, 69, 1)',
+        borderWidth: 1
+                    },
+        {
+            label: 'Số đơn hàng',
+            data: {{ orders_by_day| safe }},
+        backgroundColor: 'rgba(13, 110, 253, 0.7)',
+        borderColor: 'rgba(13, 110, 253, 1)',
+        borderWidth: 1,
+        type: 'line',
+        yAxisID: 'y1'
+                    }
+    ]
+            },
+        options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+            y: {
+                beginAtZero: true,
+                title: {
+                    display: true,
+                    text: 'Doanh thu (đồng)'
+                }
+            },
+            y1: {
+                beginAtZero: true,
+                position: 'right',
+                grid: {
+                    drawOnChartArea: false
+                },
+                title: {
+                    display: true,
+                    text: 'Số đơn hàng'
+                }
+            },
+            x: {
+                title: {
+                    display: true,
+                    text: 'Ngày trong tháng'
+                }
+            }
+        }
+    }
+        });
+
+    // Category Revenue Chart
+    const categoryLabels = [];
+    const categoryData = [];
+    const categoryColors = [
+        'rgba(255, 99, 132, 0.7)',
+        'rgba(54, 162, 235, 0.7)',
+        'rgba(255, 206, 86, 0.7)',
+        'rgba(75, 192, 192, 0.7)',
+        'rgba(153, 102, 255, 0.7)',
+        'rgba(255, 159, 64, 0.7)',
+        'rgba(199, 199, 199, 0.7)',
+        'rgba(83, 102, 255, 0.7)',
+        'rgba(40, 159, 64, 0.7)',
+        'rgba(210, 199, 199, 0.7)'
+    ];
+
+    {% for item in category_data %}
+    categoryLabels.push('{{ item.menu_item__category|default:"Không xác định" }}');
+    categoryData.push({{ item.category_total |default: 0 }});
+    {% endfor %}
+
+    const categoryChartCtx = document.getElementById('categoryRevenueChart').getContext('2d');
+    new Chart(categoryChartCtx, {
+        type: 'pie',
+        data: {
+            labels: categoryLabels,
+            datasets: [{
+                data: categoryData,
+                backgroundColor: categoryColors.slice(0, categoryLabels.length),
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+
+    // Monthly Comparison Chart
+    const monthlyComparisonData = {{ monthly_comparison| safe }};
+    const monthlyComparisonCtx = document.getElementById('monthlyComparisonChart').getContext('2d');
+    new Chart(monthlyComparisonCtx, {
+        type: 'bar',
+        data: {
+            labels: monthlyComparisonData.labels,
+            datasets: [
+                {
+                    label: 'Doanh thu (đồng)',
+                    data: monthlyComparisonData.revenues,
+                    backgroundColor: 'rgba(40, 167, 69, 0.7)',
+                    borderColor: 'rgba(40, 167, 69, 1)',
+                    borderWidth: 1
+                },
+                {
+                    label: 'Số đơn hàng',
+                    data: monthlyComparisonData.orders,
+                    backgroundColor: 'rgba(13, 110, 253, 0.7)',
+                    borderColor: 'rgba(13, 110, 253, 1)',
+                    borderWidth: 1,
+                    type: 'line',
+                    yAxisID: 'y1'
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Doanh thu (đồng)'
+                    }
+                },
+                y1: {
+                    beginAtZero: true,
+                    position: 'right',
+                    grid: {
+                        drawOnChartArea: false
+                    },
+                    title: {
+                        display: true,
+                        text: 'Số đơn hàng'
+                    }
+                },
+                x: {
+                    title: {
+                        display: true,
+                        text: 'Tháng'
+                    }
+                }
+            },
+            plugins: {
+                title: {
+                    display: true,
+                    text: `So sánh doanh thu theo tháng trong năm ${{{ year }}}`
+                    }
+                }
+            }
+        });
+
+        // Yearly Comparison Chart
+        const yearlyComparisonData = {{ yearly_comparison|safe }};
+        const yearlyComparisonCtx = document.getElementById('yearlyComparisonChart').getContext('2d');
+        new Chart(yearlyComparisonCtx, {
+            type: 'bar',
+            data: {
+                labels: yearlyComparisonData.years,
+                datasets: [
+                    {
+                        label: 'Doanh thu (đồng)',
+                        data: yearlyComparisonData.revenues,
+                        backgroundColor: 'rgba(40, 167, 69, 0.7)',
+                        borderColor: 'rgba(40, 167, 69, 1)',
+                        borderWidth: 1
+                    },
+                    {
+                        label: 'Số đơn hàng',
+                        data: yearlyComparisonData.orders,
+                        backgroundColor: 'rgba(13, 110, 253, 0.7)',
+                        borderColor: 'rgba(13, 110, 253, 1)',
+                        borderWidth: 1,
+                        type: 'line',
+                        yAxisID: 'y1'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Doanh thu (đồng)'
+                        }
+                    },
+                    y1: {
+                        beginAtZero: true,
+                        position: 'right',
+                        grid: {
+                            drawOnChartArea: false
+                        },
+                        title: {
+                            display: true,
+                            text: 'Số đơn hàng'
+                        }
+                    },
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Năm'
+                        }
+                    }
+                },
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'So sánh doanh thu theo năm'
+                    }
+                }
+            }
+        });
+    });
+</script>
+{% endblock %}

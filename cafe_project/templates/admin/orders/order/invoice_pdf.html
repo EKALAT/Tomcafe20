@@ -1,0 +1,259 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hóa đơn #{{ order.id }}</title>
+    <style>
+        @page {
+            size: a4 portrait;
+            margin: 1.0cm;
+        }
+
+        body {
+            font-family: DejaVu Sans, Arial, Helvetica, sans-serif;
+            margin: 0;
+            padding: 0;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
+        h1,
+        h2,
+        h3,
+        h4 {
+            margin: 0;
+            padding: 0;
+            font-weight: bold;
+        }
+
+        .invoice-header {
+            text-align: center;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 10px;
+        }
+
+        .invoice-title {
+            font-size: 22px;
+            font-weight: bold;
+            margin: 10px 0;
+            text-transform: uppercase;
+        }
+
+        .cafe-info {
+            margin-bottom: 20px;
+            width: 100%;
+        }
+
+        .cafe-name {
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        table.info-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 0;
+        }
+
+        table.info-table td {
+            border: none;
+            padding: 3px;
+            vertical-align: top;
+        }
+
+        table.info-table td.label {
+            font-weight: bold;
+            width: 120px;
+        }
+
+        .customer-info {
+            margin-bottom: 20px;
+            border: 1px solid #ddd;
+            padding: 10px;
+            background-color: #f9f9f9;
+            border-radius: 4px;
+        }
+
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+
+        .items-table th,
+        .items-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+
+        .items-table th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+
+        .items-table .number {
+            text-align: center;
+        }
+
+        .items-table .quantity {
+            text-align: center;
+        }
+
+        .items-table .price {
+            text-align: right;
+        }
+
+        .items-table .total {
+            text-align: right;
+            font-weight: bold;
+        }
+
+        .total-row td {
+            font-weight: bold;
+        }
+
+        .amount-in-words {
+            font-style: italic;
+            margin: 10px 0;
+            padding: 5px;
+            border-left: 3px solid #ddd;
+            background-color: #f9f9f9;
+        }
+
+        .footer {
+            margin-top: 30px;
+            text-align: center;
+            font-size: 11px;
+            color: #666;
+            border-top: 1px dashed #ddd;
+            padding-top: 10px;
+        }
+
+        .signature-area {
+            margin-top: 30px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .signature-box {
+            width: 33%;
+            text-align: center;
+        }
+
+        .signature-title {
+            font-weight: bold;
+            margin-bottom: 40px;
+        }
+
+        .barcode {
+            margin-top: 20px;
+            text-align: center;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="invoice-header">
+        <div class="invoice-title">HÓA ĐƠN THANH TOÁN</div>
+        <div>Số hóa đơn: {{ invoice_number }}</div>
+        <div>Ngày: {{ today }}</div>
+    </div>
+
+    <div class="cafe-info">
+        <div class="cafe-name">{{ cafe_name }}</div>
+        <table class="info-table">
+            <tr>
+                <td class="label">Địa chỉ:</td>
+                <td>{{ cafe_address }}</td>
+            </tr>
+            <tr>
+                <td class="label">Điện thoại:</td>
+                <td>{{ cafe_phone }}</td>
+            </tr>
+            <tr>
+                <td class="label">Email:</td>
+                <td>{{ cafe_email }}</td>
+            </tr>
+        </table>
+    </div>
+
+    <div class="customer-info">
+        <table class="info-table">
+            <tr>
+                <td class="label">Khách hàng:</td>
+                <td>{{ order.customer_name }}</td>
+            </tr>
+            <tr>
+                <td class="label">Bàn số:</td>
+                <td>{% if order.table %}{{ order.table }}{% else %}Không có{% endif %}</td>
+            </tr>
+            <tr>
+                <td class="label">Thời gian:</td>
+                <td>{{ order.created_at|date:"H:i:s d/m/Y" }}</td>
+            </tr>
+        </table>
+    </div>
+
+    <table class="items-table">
+        <thead>
+            <tr>
+                <th style="width: 5%;" class="number">STT</th>
+                <th style="width: 45%;">Tên món</th>
+                <th style="width: 10%;" class="quantity">SL</th>
+                <th style="width: 20%;" class="price">Đơn giá</th>
+                <th style="width: 20%;" class="price">Thành tiền</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in order_items %}
+            <tr>
+                <td class="number">{{ forloop.counter }}</td>
+                <td>{{ item.name }}</td>
+                <td class="quantity">{{ item.quantity }}</td>
+                <td class="price">{{ item.price }}</td>
+                <td class="price">{{ item.subtotal }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot>
+            <tr class="total-row">
+                <td colspan="4" class="price">Tổng cộng:</td>
+                <td class="price">{{ total }}</td>
+            </tr>
+        </tfoot>
+    </table>
+
+    <div class="amount-in-words">
+        Bằng chữ: {{ total_text }}
+    </div>
+
+    <div class="signature-area">
+        <div class="signature-box">
+            <div class="signature-title">Người lập phiếu</div>
+            <div>Admin</div>
+        </div>
+
+        <div class="signature-box">
+            <div class="signature-title">Thu ngân</div>
+            <div></div>
+        </div>
+
+        <div class="signature-box">
+            <div class="signature-title">Khách hàng</div>
+            <div></div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>Cảm ơn quý khách đã sử dụng dịch vụ của chúng tôi!</p>
+        <p>Hóa đơn được in lúc: {{ time }} ngày {{ today }}</p>
+    </div>
+</body>
+
+</html>

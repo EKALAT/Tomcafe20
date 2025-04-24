@@ -127,6 +127,35 @@
         text-shadow: 0 2px 3px rgba(0, 0, 0, 0.05);
     }
 
+    .card-helper {
+        font-size: 0.8rem;
+        color: rgba(111, 78, 55, 0.7);
+        margin-top: 8px;
+    }
+
+    .card-link {
+        display: inline-block;
+        margin-top: 12px;
+        color: var(--primary);
+        text-decoration: none;
+        font-size: 0.9rem;
+        font-weight: 500;
+        transition: all 0.3s;
+    }
+
+    .card-link i {
+        margin-left: 5px;
+        transition: transform 0.3s;
+    }
+
+    .card-link:hover {
+        color: var(--primary-dark);
+    }
+
+    .card-link:hover i {
+        transform: translateX(3px);
+    }
+
     /* Action groups */
     .action-groups-container {
         display: grid;
@@ -137,7 +166,7 @@
 
     .action-group {
         background: white;
-        padding: 25px;
+        padding: 50px;
         border-radius: 15px;
         box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
         transition: all 0.3s;
@@ -634,39 +663,131 @@
     <div class="dashboard-cards">
         <div class="card">
             <div class="card-progress">
-                <div class="card-icon">
-                    <i class="fas fa-chair"></i>
-                </div>
+                <div class="card-icon"><i class="fas fa-table"></i></div>
             </div>
-            <div class="card-title">Số bàn</div>
-            <div class="card-value">{{ table_count|default:"0" }}</div>
+            <h3 class="card-title">Bàn đang trống</h3>
+            <p class="card-value">{{ available_tables }} / {{ table_count }}</p>
+            <p class="card-helper">Bàn sẵn sàng phục vụ</p>
+            <a href="{% url 'admin:tables_table_changelist' %}?status__exact=available" class="card-link"
+                style="background-color: #28a745; color: white; padding: 5px 10px; border-radius: 5px; text-decoration: none; display: inline-block; margin-top: 8px; font-weight: bold;">
+                <i class="fas fa-eye"></i> Xem bàn trống
+            </a>
         </div>
+
         <div class="card">
             <div class="card-progress">
-                <div class="card-icon">
-                    <i class="fas fa-utensils"></i>
-                </div>
+                <div class="card-icon"><i class="fas fa-ban"></i></div>
             </div>
-            <div class="card-title">Số món</div>
-            <div class="card-value">{{ menu_count|default:"0" }}</div>
+            <h3 class="card-title">Bàn không khả dụng</h3>
+            <p class="card-value">{{ unavailable_tables }} / {{ table_count }}</p>
+            <p class="card-helper">Bàn đang tạm ngưng phục vụ</p>
+            <a href="{% url 'admin:tables_table_changelist' %}?status__exact=unavailable" class="card-link"
+                style="background-color: #dc3545; color: white; padding: 5px 10px; border-radius: 5px; text-decoration: none; display: inline-block; margin-top: 8px; font-weight: bold;">
+                <i class="fas fa-eye"></i> Xem bàn không khả dụng
+            </a>
         </div>
+
         <div class="card">
             <div class="card-progress">
-                <div class="card-icon">
-                    <i class="fas fa-clipboard-list"></i>
-                </div>
+                <div class="card-icon"><i class="fas fa-utensils"></i></div>
             </div>
-            <div class="card-title">Đơn hôm nay</div>
-            <div class="card-value">{{ order_count|default:"0" }}</div>
+            <h3 class="card-title">Bàn đang sử dụng</h3>
+            <p class="card-value">{{ occupied_tables }} / {{ table_count }}</p>
+            <p class="card-helper">Bàn đang có khách và đơn hàng chưa hoàn thành</p>
+            <a href="{% url 'admin:tables_table_changelist' %}?status__exact=occupied" class="card-link"
+                style="background-color: #fd7e14; color: white; padding: 5px 10px; border-radius: 5px; text-decoration: none; display: inline-block; margin-top: 8px; font-weight: bold;">
+                <i class="fas fa-eye"></i> Xem bàn đang sử dụng
+            </a>
         </div>
+
         <div class="card">
             <div class="card-progress">
-                <div class="card-icon">
-                    <i class="fas fa-money-bill-wave"></i>
-                </div>
+                <div class="card-icon"><i class="fas fa-shopping-cart"></i></div>
             </div>
-            <div class="card-title">Doanh thu hôm nay</div>
-            <div class="card-value">{{ today_revenue|default:"0"|floatformat:0|intcomma }} đ</div>
+            <h3 class="card-title">Đơn hôm nay</h3>
+            <p class="card-value">{{ order_count }}</p>
+            <p class="card-helper">Đơn hàng tạo hôm nay</p>
+            <a href="{% url 'admin:orders_order_changelist' %}?created_at__date__exact={{ today|date:'Y-m-d' }}"
+                class="card-link"
+                style="background-color: #6c757d; color: white; padding: 5px 10px; border-radius: 5px; text-decoration: none; display: inline-block; margin-top: 8px; font-weight: bold;">
+                <i class="fas fa-eye"></i> Xem chi tiết
+            </a>
+        </div>
+
+        <div class="card">
+            <div class="card-progress">
+                <div class="card-icon"><i class="fas fa-utensils"></i></div>
+            </div>
+            <h3 class="card-title">Tổng đơn hôm nay</h3>
+            <p class="card-value">{{ order_count }}</p>
+            <p class="card-helper">Đơn hàng được tạo hôm nay</p>
+        </div>
+
+        <div class="card">
+            <div class="card-progress">
+                <div class="card-icon"><i class="fas fa-check-circle"></i></div>
+            </div>
+            <h3 class="card-title">Đơn hoàn thành hôm nay</h3>
+            <p class="card-value">{{ completed_today_count }}</p>
+            <p class="card-helper">Đơn hàng đã hoàn thành hôm nay</p>
+        </div>
+
+        <div class="card">
+            <div class="card-progress">
+                <div class="card-icon"><i class="fas fa-calculator"></i></div>
+            </div>
+            <h3 class="card-title">Giá trị đơn trung bình</h3>
+            <p class="card-value">{{ avg_order_value }} đ</p>
+            <p class="card-helper">Giá trị trung bình mỗi đơn hàng</p>
+        </div>
+
+        <div class="card">
+            <div class="card-progress">
+                <div class="card-icon"><i class="fas fa-star"></i></div>
+            </div>
+            <h3 class="card-title">Món phổ biến nhất</h3>
+            <p class="card-value">{{ most_popular_item }}</p>
+            <p class="card-helper">Đã bán {{ most_popular_count }} món</p>
+        </div>
+
+        <div class="card">
+            <div class="card-progress">
+                <div class="card-icon"><i class="fas fa-money-bill-wave"></i></div>
+            </div>
+            <h3 class="card-title">Doanh thu hôm nay</h3>
+            <p class="card-value">{{ today_revenue }}</p>
+            <p class="card-helper">Doanh thu từ đơn hàng đã hoàn thành</p>
+            <a href="{% url 'admin:export_daily_excel' %}" class="card-link"
+                style="background-color: #28a745; color: white; padding: 5px 10px; border-radius: 5px; text-decoration: none; display: inline-block; margin-top: 8px; font-weight: bold;">
+                <i class="fas fa-file-excel"></i> Xuất Excel
+            </a>
+        </div>
+
+        <div class="card">
+            <div class="card-progress">
+                <div class="card-icon"><i class="fas fa-calendar-alt"></i></div>
+            </div>
+            <h3 class="card-title">Doanh thu tháng này</h3>
+            <p class="card-value">{{ month_revenue }} đ</p>
+            <p class="card-helper">Doanh thu từ tất cả đơn hàng trong tháng</p>
+            <a href="{% url 'admin:export_monthly_excel' %}" class="card-link"
+                style="background-color: #17a2b8; color: white; padding: 5px 10px; border-radius: 5px; text-decoration: none; display: inline-block; margin-top: 8px; font-weight: bold;">
+                <i class="fas fa-file-excel"></i> Xuất Excel
+            </a>
+        </div>
+
+        <div class="card">
+            <div class="card-progress">
+                <div class="card-icon"><i class="fas fa-hourglass-half"></i></div>
+            </div>
+            <h3 class="card-title">Đơn chưa hoàn thành</h3>
+            <p class="card-value">{{ unpaid_count }}</p>
+            <p class="card-helper">Tổng giá trị: {{ unpaid_value }} đ</p>
+            <a href="{% url 'admin:orders_order_changelist' %}?status__in=pending,preparing&created_at__date__exact={{ today|date:'Y-m-d' }}"
+                class="card-link"
+                style="background-color: #fd7e14; color: white; padding: 5px 10px; border-radius: 5px; text-decoration: none; display: inline-block; margin-top: 8px; font-weight: bold;">
+                <i class="fas fa-eye"></i> Xem các đơn
+            </a>
         </div>
     </div>
 
@@ -756,8 +877,25 @@
                     <span>Thêm khách hàng</span>
                     <div class="item-count">Tạo tài khoản khách</div>
                 </a>
+                <a href="{% url 'admin:export_daily_excel' %}" class="action-item" target="_blank">
+                    <div class="action-item-icon">
+                        <i class="fas fa-file-excel"></i>
+                    </div>
+                    <span>Xuất Excel ngày</span>
+                    <div class="item-count">File Excel</div>
+                </a>
+                <a href="{% url 'admin:export_monthly_excel' %}" class="action-item" target="_blank">
+                    <div class="action-item-icon">
+                        <i class="fas fa-file-excel"></i>
+                    </div>
+                    <span>Xuất Excel tháng</span>
+                    <div class="item-count">File Excel</div>
+                </a>
             </div>
         </div>
+
+        <!-- Reports group -->
+        <!-- Xóa báo cáo doanh thu, chỉ giữ Excel -->
     </div>
 
     <!-- All apps section - Improved design -->
