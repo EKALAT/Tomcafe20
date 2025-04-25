@@ -4,7 +4,7 @@ contains the two classes for the main dashboard and app index dashboard.
 You can customize these classes as you want.
 
 To activate your index dashboard add the following to your settings.py::
-    GRAPPELLI_INDEX_DASHBOARD = 'tomcafe_20.cafe_project.dashboard.CustomIndexDashboard'
+    GRAPPELLI_INDEX_DASHBOARD = 'cafe_project.dashboard.CustomIndexDashboard'
 """
 
 from django.utils.translation import gettext_lazy as _

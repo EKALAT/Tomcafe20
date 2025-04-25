@@ -11,7 +11,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
-import os  # เพิ่ม import os ที่ด้านบนของไฟล์
+import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -26,7 +26,7 @@ SECRET_KEY = 'django-insecure-_j$9%rtla=q%a+@@(qsi5p-fp50-cekccb(#@26)-j-86n5(et
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '127.0.0.1:8000','tomcafe20.onrender.com']
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '127.0.0.1:8000']
 
 
 # Application definition
@@ -81,24 +81,16 @@ WSGI_APPLICATION = 'cafe_project.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.postgresql',
-#         'NAME': 'tomcafe20',
-#         'USER': 'postgres',
-#         'PASSWORD': '7878987',
-#         'HOST': 'localhost',
-#         'PORT': '5432',
-#     }
-# }
-
-import dj_database_url
-import os
-
 DATABASES = {
-    'default': dj_database_url.config(default=os.environ.get('DATABASE_URL'))
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'tomcafe20',
+        'USER': 'postgres',
+        'PASSWORD': '7878987',
+        'HOST': 'localhost',
+        'PORT': '5432',
+    }
 }
-
 
 
 # Password validation
@@ -159,4 +151,4 @@ DEBUG_SERVE_STATIC = True
 # Grappelli Settings
 GRAPPELLI_ADMIN_TITLE = "TomCafe - Hệ thống quản lý quán cà phê"
 GRAPPELLI_SWITCH_USER = True
-GRAPPELLI_INDEX_DASHBOARD = 'tomcafe_20.cafe_project.dashboard.CustomIndexDashboard'
+GRAPPELLI_INDEX_DASHBOARD = 'cafe_project.dashboard.CustomIndexDashboard'
