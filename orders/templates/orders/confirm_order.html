@@ -66,12 +66,14 @@
                     <form method="post" action="{% url 'confirm_order' %}">
                         {% csrf_token %}
                         <input type="hidden" name="table_id" value="{{ table_id }}">
-                        <button type="submit" class="btn btn-success btn-lg w-100 mt-3" style="font-family: 'Be Vietnam Pro', sans-serif;">
+                        <button type="submit" class="btn btn-success btn-lg w-100 mt-3"
+                            style="font-family: 'Be Vietnam Pro', sans-serif;">
                             <i class="fas fa-check-circle me-2"></i>Xác nhận đơn hàng
                         </button>
                     </form>
 
-                    <a href="{% url 'menu_list' %}" class="btn btn-outline-primary w-100 mt-2" style="font-family: 'Be Vietnam Pro', sans-serif;">
+                    <a href="{% url 'menu_list' %}" class="btn btn-outline-primary w-100 mt-2"
+                        style="font-family: 'Be Vietnam Pro', sans-serif;">
                         <i class="fas fa-arrow-left me-2"></i>Quay lại chọn thêm món
                     </a>
                 </div>

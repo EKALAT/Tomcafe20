@@ -1,29 +1,36 @@
 from django.contrib import admin
-from django.contrib.admin import AdminSite
+from django.contrib.admin.sites import AdminSite
 from django.utils.translation import gettext_lazy as _
-from django.template.response import TemplateResponse
-from django.utils import timezone
-import datetime
-from django.utils.safestring import mark_safe
-from django.contrib.admin.widgets import AdminFileWidget
-from django.db.models import Sum, F, DecimalField, Count
+from django.shortcuts import render, redirect, get_object_or_404
 from django.http import HttpResponse, HttpResponseRedirect
 from django.urls import path, reverse
-from django.template.loader import get_template
-import os
-from io import BytesIO
-from django.conf import settings
-import calendar
-from xhtml2pdf import pisa
 from django.contrib import messages
+from django.db.models import Count, Sum, F, Q
+from django.db.models.functions import TruncDay, TruncMonth
+from django.contrib.admin.widgets import AdminFileWidget
+from django.utils.safestring import mark_safe
+from django.template.loader import get_template
+from django.conf import settings
+from django.utils import timezone
+from io import BytesIO
+
+import os
+import datetime
+import calendar
 import xlsxwriter
-import openpyxl
-from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
-from openpyxl.utils import get_column_letter
+import xhtml2pdf.pisa as pisa
+
+from orders.models import Order, OrderItem
+from tables.models import Table
+from menu.models import MenuItem
+from customers.models import Customer
+from django.contrib.auth.models import User
 
 # Thiết kế Admin Site mới
 class TomCafeAdminSite(AdminSite):
-    # Thiết lập tên tiêu đề trang
+    """
+    Quản lý trang admin của TomCafe
+    """
     site_title = _("TomCafe - Quản lý")
     site_header = _("TomCafe - Hệ thống quản lý quán cà phê")
     index_title = _("Chào mừng đến với TomCafe Admin")
@@ -48,7 +55,7 @@ class TomCafeAdminSite(AdminSite):
             created_at__date=today
         ).count()
         
-        # Tính doanh thu hôm nay - Chỉ từ đơn hàng đã hoàn thành
+        # Tính toán doanh thu hôm nay - Chỉ từ đơn hàng đã hoàn thành
         today_revenue = 0
         today_completed_orders = Order.objects.filter(
             created_at__date=today,
@@ -274,28 +281,37 @@ tomcafe_admin_site.register(Group)
 # Đăng ký model Customer
 @admin.register(Customer, site=tomcafe_admin_site)
 class CustomerAdmin(admin.ModelAdmin):
-    list_display = ('name', 'phone', 'email', 'visits', 'created_at', 'last_visit')
-    list_filter = ('created_at', 'last_visit')
+    """
+    Quản lý danh sách khách hàng
+    """
+    list_display = ('name', 'phone', 'email', 'get_total_orders', 'created_at')
     search_fields = ('name', 'phone', 'email')
-    readonly_fields = ('created_at', 'last_visit')
-    date_hierarchy = 'created_at'
+    list_filter = ('created_at',)
+    readonly_fields = ('created_at',)
     fieldsets = (
-        ('Thông tin khách hàng', {
+        (None, {
             'fields': ('name', 'phone', 'email')
         }),
-        ('Thông tin sử dụng dịch vụ', {
-            'fields': ('visits', 'created_at', 'last_visit')
+        (_('Thông tin thêm'), {
+            'fields': ('created_at',),
+            'classes': ('collapse',)
         }),
     )
+    
+    def get_total_orders(self, obj):
+        return obj.orders.count()
+    get_total_orders.short_description = 'Tổng số đơn hàng'
 
 # Đăng ký model Table
 @admin.register(Table, site=tomcafe_admin_site)
 class TableAdmin(admin.ModelAdmin):
-    list_display = ('number', 'get_status_display', 'capacity', 'is_active')
-    list_filter = ('status', 'is_active')
+    """
+    Quản lý bàn trong quán
+    """
+    list_display = ('number', 'status', 'capacity')
+    list_filter = ('status',)
     search_fields = ('number',)
-    list_editable = ('is_active',)
-    actions = ['make_available', 'make_unavailable']
+    ordering = ('number',)
     
     def get_status_display(self, obj):
         status_map = {
@@ -329,10 +345,20 @@ class AdminImageWidget(AdminFileWidget):
 
 @admin.register(MenuItem, site=tomcafe_admin_site)
 class MenuItemAdmin(admin.ModelAdmin):
-    list_display = ('name', 'format_price', 'category', 'display_image')
-    list_filter = ('category',)
-    search_fields = ('name', 'category')
-    autocomplete_fields = []
+    """
+    Quản lý menu của quán
+    """
+    list_display = ('name', 'category', 'price', 'available', 'image_tag')
+    list_filter = ('category', 'available')
+    search_fields = ('name', 'description')
+    readonly_fields = ('image_tag',)
+    
+    def image_tag(self, obj):
+        if obj.image:
+            return mark_safe(f'<img src="{obj.image.url}" width="80" height="80" style="object-fit: cover; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);" />')
+        return mark_safe('<span style="color:#999;">Không có hình ảnh</span>')
+    image_tag.short_description = 'Hình ảnh'
+    image_tag.allow_tags = True
     
     def format_price(self, obj):
         return f"{obj.price:,.0f} đ"
@@ -347,10 +373,10 @@ class MenuItemAdmin(admin.ModelAdmin):
     
     fieldsets = (
         ('Thông tin món', {
-            'fields': ('name', 'price', 'category')
+            'fields': ('name', 'price', 'category', 'available', 'description')
         }),
         ('Hình ảnh', {
-            'fields': ('image',),
+            'fields': ('image', 'image_tag'),
             'description': 'Chọn hình ảnh món với độ phân giải tốt (khuyến nghị 500x500 px)'
         }),
     )
@@ -406,7 +432,7 @@ class OrderItemInline(admin.TabularInline):
 
 @admin.register(Order, site=tomcafe_admin_site)
 class OrderAdmin(admin.ModelAdmin):
-    list_display = ('id', 'customer_name', 'table', 'created_at', 'get_status_display', 'order_total', 'view_items', 'generate_invoice')
+    list_display = ('id', 'customer_name', 'table', 'formatted_created_at', 'get_status_display', 'order_total', 'view_items', 'generate_invoice')
     list_filter = ('status', 'created_at')
     search_fields = ('customer_name', 'table__number')
     readonly_fields = ('created_at', 'updated_at', 'order_summary', 'invoice_pdf')
@@ -435,9 +461,9 @@ class OrderAdmin(admin.ModelAdmin):
     def get_urls(self):
         urls = super().get_urls()
         custom_urls = [
-            path('invoice/<int:order_id>/', self.admin_site.admin_view(self.generate_invoice_pdf), name='order_invoice'),
+            path('order/invoice/<int:pk>/', self.admin_site.admin_view(self.generate_invoice_pdf), name='order_invoice'),
             path('export-daily-excel/', self.admin_site.admin_view(self.export_daily_report_excel), name='export_daily_excel'),
-            path('export-monthly-excel/', self.admin_site.admin_view(self.export_monthly_report_excel), name='export_monthly_excel'),
+            path('export-monthly-excel-report/', self.admin_site.admin_view(self.export_monthly_report_excel), name='export_monthly_excel'),
         ]
         return custom_urls + urls
     
@@ -526,6 +552,12 @@ class OrderAdmin(admin.ModelAdmin):
         html += '</tr></tfoot>'
         html += '</table>'
         
+        # Order creation date-time in local timezone
+        local_datetime = timezone.localtime(obj.created_at)
+        formatted_datetime = local_datetime.strftime("%d/%m/%Y %H:%M")
+        
+        html += f'<p><strong>Ngày tạo đơn:</strong> {formatted_datetime}</p>'
+        
         # Thêm nút thay đổi trạng thái
         html += '<div style="display:flex; gap:10px; margin-top:20px;">'
         
@@ -559,7 +591,7 @@ class OrderAdmin(admin.ModelAdmin):
                 old_status = order.status
                 order.status = 'completed'
                 order.save()
-                completed_count += 1 
+                completed_count += 1
                 
             # Luôn thêm ID của đơn hàng vào danh sách để báo cáo
             order_ids.append(str(order.id))
@@ -573,7 +605,10 @@ class OrderAdmin(admin.ModelAdmin):
             messages.success(request, f"Đã đánh dấu {completed_count} đơn hàng (#{', #'.join(order_ids)}) là hoàn thành.")
             
             # Kiểm tra và cập nhật trạng thái tất cả các bàn sau khi hoàn thành đơn hàng
-            tables_updated = self.check_table_status(request)
+            admin_site = self.admin_site
+            tables_updated = False
+            if hasattr(admin_site, 'check_table_status'):
+                tables_updated = admin_site.check_table_status(request)
             
             if not tables_updated:
                 messages.info(request, "Không có bàn nào cần thay đổi trạng thái.")
@@ -607,7 +642,10 @@ class OrderAdmin(admin.ModelAdmin):
             messages.success(request, f"Đã đánh dấu {updated_count} đơn hàng (#{', #'.join(order_ids)}) là chờ xử lý.")
             
             # Kiểm tra và cập nhật trạng thái tất cả các bàn
-            tables_updated = self.check_table_status(request)
+            admin_site = self.admin_site
+            tables_updated = False
+            if hasattr(admin_site, 'check_table_status'):
+                tables_updated = admin_site.check_table_status(request)
             
             if not tables_updated:
                 messages.info(request, "Không có bàn nào cần thay đổi trạng thái.")
@@ -641,7 +679,10 @@ class OrderAdmin(admin.ModelAdmin):
             messages.success(request, f"Đã đánh dấu {updated_count} đơn hàng (#{', #'.join(order_ids)}) là đang chuẩn bị.")
             
             # Kiểm tra và cập nhật trạng thái tất cả các bàn
-            tables_updated = self.check_table_status(request)
+            admin_site = self.admin_site
+            tables_updated = False
+            if hasattr(admin_site, 'check_table_status'):
+                tables_updated = admin_site.check_table_status(request)
             
             if not tables_updated:
                 messages.info(request, "Không có bàn nào cần thay đổi trạng thái.")
@@ -651,17 +692,17 @@ class OrderAdmin(admin.ModelAdmin):
     
     def mark_as_cancelled(self, request, queryset):
         """Đánh dấu các đơn hàng đã chọn là 'đã hủy' và cập nhật trạng thái bàn nếu cần"""
-        cancelled_count = 0
+        updated_count = 0
         order_ids = []
         tables_affected = set()
         
         for order in queryset:
-            # Chỉ cập nhật đơn hàng chưa hủy
+            # Chỉ cập nhật đơn hàng chưa ở trạng thái đã hủy
             if order.status != 'cancelled':
                 old_status = order.status
                 order.status = 'cancelled'
                 order.save()
-                cancelled_count += 1
+                updated_count += 1
                 
             # Luôn thêm ID của đơn hàng vào danh sách để báo cáo
             order_ids.append(str(order.id))
@@ -671,11 +712,14 @@ class OrderAdmin(admin.ModelAdmin):
                 tables_affected.add(order.table.id)
         
         # Thông báo về đơn hàng đã cập nhật
-        if cancelled_count > 0:
-            messages.success(request, f"Đã đánh dấu {cancelled_count} đơn hàng (#{', #'.join(order_ids)}) là đã hủy.")
+        if updated_count > 0:
+            messages.success(request, f"Đã đánh dấu {updated_count} đơn hàng (#{', #'.join(order_ids)}) là đã hủy.")
             
-            # Kiểm tra và cập nhật trạng thái tất cả các bàn sau khi hủy đơn hàng
-            tables_updated = self.check_table_status(request)
+            # Kiểm tra và cập nhật trạng thái tất cả các bàn
+            admin_site = self.admin_site
+            tables_updated = False
+            if hasattr(admin_site, 'check_table_status'):
+                tables_updated = admin_site.check_table_status(request)
             
             if not tables_updated:
                 messages.info(request, "Không có bàn nào cần thay đổi trạng thái.")
@@ -683,39 +727,449 @@ class OrderAdmin(admin.ModelAdmin):
             messages.info(request, "Không có đơn hàng nào được cập nhật trạng thái.")
     mark_as_cancelled.short_description = "Đánh dấu đã hủy"
     
-    def generate_invoices(self, request, queryset):
-        """Xuất hóa đơn cho nhiều đơn hàng đã chọn và đánh dấu là hoàn thành"""
-        completed_count = 0
-        order_ids = []
-        tables_affected = set()
+    def export_daily_report_excel(self, request):
+        """Xuất báo cáo doanh thu theo ngày ra file Excel"""
+        # Kiểm tra và cập nhật trạng thái bàn
+        # Use the check_table_status method from the admin_site instance (tomcafe_admin_site)
+        admin_site = self.admin_site
+        if hasattr(admin_site, 'check_table_status'):
+            admin_site.check_table_status(request)
         
-        for order in queryset:
-            # Chỉ cập nhật đơn hàng chưa hoàn thành
-            if order.status != 'completed':
-                old_status = order.status
-                order.status = 'completed'
-                order.save()
-                completed_count += 1
-                
-            # Luôn thêm ID của đơn hàng vào danh sách để báo cáo
-            order_ids.append(str(order.id))
-            
-            # Lưu lại bàn bị ảnh hưởng để cập nhật sau
-            if order.table:
-                tables_affected.add(order.table.id)
-        
-        # Thông báo về đơn hàng đã cập nhật
-        if completed_count > 0:
-            messages.success(request, f"Đã đánh dấu {completed_count} đơn hàng (#{', #'.join(order_ids)}) là hoàn thành và sẵn sàng xuất hóa đơn.")
-            
-            # Kiểm tra và cập nhật trạng thái tất cả các bàn sau khi hoàn thành đơn hàng
-            tables_updated = self.check_table_status(request)
-            
-            if not tables_updated:
-                messages.info(request, "Không có bàn nào cần thay đổi trạng thái.")
+        # Lấy ngày từ request, nếu không có thì dùng ngày hiện tại
+        selected_date_str = request.GET.get('date')
+        if selected_date_str:
+            try:
+                selected_date = datetime.datetime.strptime(selected_date_str, '%Y-%m-%d').date()
+            except ValueError:
+                selected_date = timezone.localdate()
         else:
-            messages.info(request, "Không có đơn hàng nào được cập nhật trạng thái.")
-    generate_invoices.short_description = "Đánh dấu hoàn thành & xuất hóa đơn"
+            selected_date = timezone.localdate()
+        
+        # Lấy tất cả đơn hàng trong ngày
+        start_of_day = timezone.make_aware(datetime.datetime.combine(selected_date, datetime.time.min))
+        end_of_day = timezone.make_aware(datetime.datetime.combine(selected_date, datetime.time.max))
+        orders = Order.objects.filter(created_at__range=(start_of_day, end_of_day))
+        
+        # Tạo BytesIO object để lưu file Excel
+        output = BytesIO()
+        
+        # Tạo workbook mới với xlsxwriter
+        workbook = xlsxwriter.Workbook(output)
+        worksheet = workbook.add_worksheet(f'Doanh thu {selected_date.strftime("%d-%m-%Y")}')
+        
+        # Định dạng
+        title_format = workbook.add_format({
+            'bold': True,
+            'font_size': 15,
+            'align': 'center',
+            'valign': 'vcenter',
+            'font_name': 'Arial'
+        })
+        
+        header_format = workbook.add_format({
+            'bold': True,
+            'bg_color': '#F7F7F7',
+            'border': 1,
+            'align': 'center',
+            'valign': 'vcenter',
+            'font_name': 'Arial'
+        })
+        
+        date_format = workbook.add_format({
+            'num_format': 'dd/mm/yyyy hh:mm',
+            'border': 1,
+            'font_name': 'Arial'
+        })
+        
+        money_format = workbook.add_format({
+            'num_format': '###,###,### ₫',
+            'border': 1,
+            'font_name': 'Arial'
+        })
+        
+        cell_format = workbook.add_format({
+            'border': 1,
+            'font_name': 'Arial'
+        })
+        
+        total_format = workbook.add_format({
+            'bold': True,
+            'bg_color': '#F7F7F7',
+            'border': 1,
+            'num_format': '###,###,### ₫',
+            'font_name': 'Arial'
+        })
+        
+        # Tiêu đề
+        worksheet.merge_range('A1:F1', f'BÁO CÁO DOANH THU NGÀY {selected_date.strftime("%d/%m/%Y")}', title_format)
+        worksheet.set_row(0, 30)
+        
+        # Thống kê tổng quan
+        total_orders = orders.count()
+        completed_orders = orders.filter(status='completed').count()
+        pending_orders = orders.filter(status='pending').count()
+        
+        # Calculate total revenue
+        total_revenue = 0
+        for order in orders.filter(status='completed'):
+            total_revenue += order.get_total() if hasattr(order, 'get_total') and callable(getattr(order, 'get_total')) else 0
+        
+        row = 3
+        worksheet.write(row, 0, 'Tổng số đơn hàng:', cell_format)
+        worksheet.write(row, 1, total_orders, cell_format)
+        row += 1
+        worksheet.write(row, 0, 'Đơn hàng hoàn thành:', cell_format)
+        worksheet.write(row, 1, completed_orders, cell_format)
+        row += 1
+        worksheet.write(row, 0, 'Đơn hàng chờ xử lý:', cell_format)
+        worksheet.write(row, 1, pending_orders, cell_format)
+        row += 1
+        worksheet.write(row, 0, 'Tổng doanh thu:', cell_format)
+        worksheet.write(row, 1, total_revenue, money_format)
+        
+        # Thống kê món ăn bán chạy
+        row += 2
+        worksheet.merge_range(f'A{row+1}:C{row+1}', 'TOP 5 MÓN BÁN CHẠY NHẤT', header_format)
+        row += 1
+        worksheet.write(row, 0, 'Món', header_format)
+        worksheet.write(row, 1, 'Số lượng', header_format)
+        worksheet.write(row, 2, 'Doanh thu', header_format)
+        
+        # Tính toán số lượng và doanh thu từng món
+        menu_items_stats = {}
+        for order in orders.filter(status='completed'):
+            for item in order.orderitem_set.all():
+                if item.menu_item:
+                    name = item.menu_item.name
+                    price = item.menu_item.price
+                elif item.item:
+                    name = item.item.name
+                    price = item.item.price
+                else:
+                    continue
+                
+                if name not in menu_items_stats:
+                    menu_items_stats[name] = {'quantity': 0, 'revenue': 0}
+                    
+                menu_items_stats[name]['quantity'] += item.quantity
+                menu_items_stats[name]['revenue'] += price * item.quantity
+        
+        # Sắp xếp theo số lượng bán giảm dần
+        top_items = sorted(
+            [{'name': name, **stats} for name, stats in menu_items_stats.items()],
+            key=lambda x: x['quantity'],
+            reverse=True
+        )[:5]  # Lấy 5 món bán chạy nhất
+        
+        # Thêm thông tin vào worksheet
+        for item in top_items:
+            row += 1
+            worksheet.write(row, 0, item['name'], cell_format)
+            worksheet.write(row, 1, item['quantity'], cell_format)
+            worksheet.write(row, 2, item['revenue'], money_format)
+        
+        # Thống kê chi tiết đơn hàng
+        row += 3
+        worksheet.merge_range(f'A{row+1}:G{row+1}', 'CHI TIẾT ĐƠN HÀNG', header_format)
+        row += 1
+        worksheet.write(row, 0, 'ID', header_format)
+        worksheet.write(row, 1, 'Khách hàng', header_format)
+        worksheet.write(row, 2, 'Bàn', header_format)
+        worksheet.write(row, 3, 'Thời gian', header_format)
+        worksheet.write(row, 4, 'Trạng thái', header_format)
+        worksheet.write(row, 5, 'Số món', header_format)
+        worksheet.write(row, 6, 'Tổng tiền', header_format)
+        
+        # Thêm chi tiết từng đơn hàng
+        for order in orders.order_by('-created_at'):
+            row += 1
+            status_map = {
+                'pending': 'Chờ xử lý',
+                'preparing': 'Đang chuẩn bị',
+                'completed': 'Hoàn thành',
+                'cancelled': 'Đã hủy'
+            }
+            
+            order_total = order.get_total() if hasattr(order, 'get_total') and callable(getattr(order, 'get_total')) else 0
+            
+            # Convert to local timezone for display
+            local_datetime = timezone.localtime(order.created_at)
+            
+            worksheet.write(row, 0, order.id, cell_format)
+            worksheet.write(row, 1, order.customer_name, cell_format)
+            worksheet.write(row, 2, order.table.number if order.table else 'N/A', cell_format)
+            worksheet.write_datetime(row, 3, local_datetime.replace(tzinfo=None), date_format)
+            worksheet.write(row, 4, status_map.get(order.status, order.status), cell_format)
+            worksheet.write(row, 5, order.orderitem_set.count(), cell_format)
+            worksheet.write(row, 6, order_total, money_format)
+        
+        # Điều chỉnh chiều rộng cột
+        worksheet.set_column('A:A', 8)
+        worksheet.set_column('B:B', 20)
+        worksheet.set_column('C:C', 10)
+        worksheet.set_column('D:D', 20)
+        worksheet.set_column('E:E', 15)
+        worksheet.set_column('F:F', 15)
+        worksheet.set_column('G:G', 15)
+        
+        # Đóng workbook
+        workbook.close()
+        
+        # Thiết lập response
+        output.seek(0)
+        response = HttpResponse(
+            output,
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = f'attachment; filename=doanh_thu_ngay_{selected_date.strftime("%d-%m-%Y")}.xlsx'
+        return response
+    
+    def generate_invoices(self, request, queryset):
+        """Tạo hóa đơn PDF cho nhiều đơn hàng cùng lúc"""
+        if not queryset:
+            messages.error(request, "Không có đơn hàng nào được chọn.")
+            return
+        
+        # Lọc ra các đơn hàng hoàn thành
+        completed_orders = queryset.filter(status='completed')
+        
+        if not completed_orders:
+            messages.error(request, "Không có đơn hàng hoàn thành nào được chọn. Chỉ đơn hàng hoàn thành mới có thể xuất hóa đơn.")
+            return
+        
+        order_ids = [str(order.id) for order in completed_orders]
+        messages.success(request, f"Đã yêu cầu xuất hóa đơn cho {len(completed_orders)} đơn hàng: #{', #'.join(order_ids)}.")
+        
+        # Redirect đến trang chi tiết đơn hàng đầu tiên
+        first_order = completed_orders[0]
+        return HttpResponseRedirect(reverse('admin:order_invoice', args=[first_order.id]))
+    generate_invoices.short_description = "Xuất hóa đơn PDF cho đơn hàng đã chọn"
+    
+    def export_monthly_report_excel(self, request):
+        """Xuất báo cáo doanh thu theo tháng ra file Excel"""
+        # Kiểm tra và cập nhật trạng thái bàn
+        # Use the check_table_status method from the admin_site instance (tomcafe_admin_site)
+        admin_site = self.admin_site
+        if hasattr(admin_site, 'check_table_status'):
+            admin_site.check_table_status(request)
+        
+        # Lấy tháng và năm từ request, nếu không có thì dùng tháng hiện tại
+        selected_month = int(request.GET.get('month', timezone.localdate().month))
+        selected_year = int(request.GET.get('year', timezone.localdate().year))
+        
+        # Tạo ngày đầu tháng và cuối tháng
+        start_of_month = timezone.make_aware(datetime.datetime(selected_year, selected_month, 1))
+        
+        # Get the last day of the month
+        if selected_month == 12:
+            end_of_month = timezone.make_aware(datetime.datetime(selected_year + 1, 1, 1)) - datetime.timedelta(days=1)
+        else:
+            end_of_month = timezone.make_aware(datetime.datetime(selected_year, selected_month + 1, 1)) - datetime.timedelta(days=1)
+        
+        end_of_month = timezone.make_aware(datetime.datetime.combine(end_of_month.date(), datetime.time.max))
+        
+        # Lấy tất cả đơn hàng trong tháng
+        orders = Order.objects.filter(created_at__range=(start_of_month, end_of_month))
+        completed_orders = orders.filter(status='completed')
+        
+        # Tạo BytesIO object để lưu file Excel
+        output = BytesIO()
+        
+        # Tạo workbook mới với xlsxwriter
+        workbook = xlsxwriter.Workbook(output)
+        worksheet_summary = workbook.add_worksheet('Tổng quan')
+        worksheet_daily = workbook.add_worksheet('Theo ngày')
+        worksheet_items = workbook.add_worksheet('Theo món')
+        
+        # Định dạng
+        title_format = workbook.add_format({
+            'bold': True,
+            'font_size': 15,
+            'align': 'center',
+            'valign': 'vcenter',
+            'font_name': 'Arial'
+        })
+        
+        header_format = workbook.add_format({
+            'bold': True,
+            'bg_color': '#F7F7F7',
+            'border': 1,
+            'align': 'center',
+            'valign': 'vcenter',
+            'font_name': 'Arial'
+        })
+        
+        date_format = workbook.add_format({
+            'num_format': 'dd/mm/yyyy',
+            'border': 1,
+            'font_name': 'Arial'
+        })
+        
+        datetime_format = workbook.add_format({
+            'num_format': 'dd/mm/yyyy hh:mm',
+            'border': 1,
+            'font_name': 'Arial'
+        })
+        
+        money_format = workbook.add_format({
+            'num_format': '###,###,### ₫',
+            'border': 1,
+            'font_name': 'Arial'
+        })
+        
+        cell_format = workbook.add_format({
+            'border': 1,
+            'font_name': 'Arial'
+        })
+        
+        total_format = workbook.add_format({
+            'bold': True,
+            'bg_color': '#F7F7F7',
+            'border': 1,
+            'num_format': '###,###,### ₫',
+            'font_name': 'Arial'
+        })
+        
+        # Tiêu đề cho worksheet tổng quan
+        month_names = ['Tháng Một', 'Tháng Hai', 'Tháng Ba', 'Tháng Tư', 'Tháng Năm', 'Tháng Sáu', 
+                      'Tháng Bảy', 'Tháng Tám', 'Tháng Chín', 'Tháng Mười', 'Tháng Mười Một', 'Tháng Mười Hai']
+        worksheet_summary.merge_range('A1:F1', f'BÁO CÁO DOANH THU {month_names[selected_month-1].upper()} {selected_year}', title_format)
+        worksheet_summary.set_row(0, 30)
+        
+        # Thống kê tổng quan
+        total_orders = orders.count()
+        total_completed_orders = completed_orders.count()
+        
+        # Calculate total revenue - safe handling for get_total method
+        total_revenue = 0
+        for order in completed_orders:
+            total_revenue += order.get_total() if hasattr(order, 'get_total') and callable(getattr(order, 'get_total')) else 0
+        
+        avg_order_value = total_revenue / total_completed_orders if total_completed_orders > 0 else 0
+        
+        row = 3
+        worksheet_summary.write(row, 0, 'Tổng số đơn hàng:', cell_format)
+        worksheet_summary.write(row, 1, total_orders, cell_format)
+        row += 1
+        worksheet_summary.write(row, 0, 'Đơn hàng hoàn thành:', cell_format)
+        worksheet_summary.write(row, 1, total_completed_orders, cell_format)
+        row += 1
+        worksheet_summary.write(row, 0, 'Tổng doanh thu:', cell_format)
+        worksheet_summary.write(row, 1, total_revenue, money_format)
+        row += 1
+        worksheet_summary.write(row, 0, 'Giá trị đơn hàng trung bình:', cell_format)
+        worksheet_summary.write(row, 1, avg_order_value, money_format)
+        
+        # Thống kê doanh thu theo ngày
+        row += 3
+        worksheet_daily.merge_range('A1:F1', f'DOANH THU THEO NGÀY TRONG {month_names[selected_month-1].upper()} {selected_year}', title_format)
+        worksheet_daily.set_row(0, 30)
+        
+        row = 3
+        worksheet_daily.write(row, 0, 'Ngày', header_format)
+        worksheet_daily.write(row, 1, 'Số đơn hàng', header_format)
+        worksheet_daily.write(row, 2, 'Số đơn hoàn thành', header_format)
+        worksheet_daily.write(row, 3, 'Doanh thu', header_format)
+        
+        # Tạo từ điển để lưu thống kê theo ngày
+        daily_stats = {}
+        current_date = start_of_month.date()
+        while current_date <= end_of_month.date():
+            daily_stats[current_date] = {
+                'total_orders': 0,
+                'completed_orders': 0,
+                'revenue': 0
+            }
+            current_date += datetime.timedelta(days=1)
+        
+        # Tính toán thống kê theo ngày
+        for order in orders:
+            order_date = order.created_at.date()
+            daily_stats[order_date]['total_orders'] += 1
+            if order.status == 'completed':
+                daily_stats[order_date]['completed_orders'] += 1
+                daily_stats[order_date]['revenue'] += order.get_total() if hasattr(order, 'get_total') and callable(getattr(order, 'get_total')) else 0
+        
+        # Thêm dữ liệu vào worksheet
+        for date, stats in sorted(daily_stats.items()):
+            row += 1
+            worksheet_daily.write_datetime(row, 0, datetime.datetime.combine(date, datetime.time.min), date_format)
+            worksheet_daily.write(row, 1, stats['total_orders'], cell_format)
+            worksheet_daily.write(row, 2, stats['completed_orders'], cell_format)
+            worksheet_daily.write(row, 3, stats['revenue'], money_format)
+        
+        # Tổng cộng
+        row += 1
+        worksheet_daily.write(row, 0, 'Tổng cộng', header_format)
+        worksheet_daily.write(row, 1, total_orders, header_format)
+        worksheet_daily.write(row, 2, total_completed_orders, header_format)
+        worksheet_daily.write(row, 3, total_revenue, total_format)
+        
+        # Thống kê theo món
+        worksheet_items.merge_range('A1:D1', f'DOANH THU THEO MÓN TRONG {month_names[selected_month-1].upper()} {selected_year}', title_format)
+        worksheet_items.set_row(0, 30)
+        
+        row = 3
+        worksheet_items.write(row, 0, 'Món', header_format)
+        worksheet_items.write(row, 1, 'Số lượng', header_format)
+        worksheet_items.write(row, 2, 'Doanh thu', header_format)
+        worksheet_items.write(row, 3, 'Tỷ lệ', header_format)
+        
+        # Tính toán số lượng và doanh thu từng món
+        menu_items_stats = {}
+        for order in completed_orders:
+            for item in order.orderitem_set.all():
+                if item.menu_item:
+                    name = item.menu_item.name
+                    price = item.menu_item.price
+                elif item.item:
+                    name = item.item.name
+                    price = item.item.price
+                else:
+                    continue
+                
+                if name not in menu_items_stats:
+                    menu_items_stats[name] = {'quantity': 0, 'revenue': 0}
+                    
+                menu_items_stats[name]['quantity'] += item.quantity
+                menu_items_stats[name]['revenue'] += price * item.quantity
+        
+        # Sắp xếp theo doanh thu giảm dần
+        menu_items = sorted(
+            [{'name': name, **stats} for name, stats in menu_items_stats.items()],
+            key=lambda x: x['revenue'],
+            reverse=True
+        )
+        
+        # Thêm thông tin vào worksheet
+        for item in menu_items:
+            row += 1
+            percentage = (item['revenue'] / total_revenue * 100) if total_revenue > 0 else 0
+            worksheet_items.write(row, 0, item['name'], cell_format)
+            worksheet_items.write(row, 1, item['quantity'], cell_format)
+            worksheet_items.write(row, 2, item['revenue'], money_format)
+            worksheet_items.write(row, 3, f"{percentage:.2f}%", cell_format)
+        
+        # Điều chỉnh chiều rộng cột
+        for sheet in [worksheet_summary, worksheet_daily, worksheet_items]:
+            sheet.set_column('A:A', 20)
+            sheet.set_column('B:B', 15)
+            sheet.set_column('C:C', 15)
+            sheet.set_column('D:D', 15)
+            sheet.set_column('E:E', 15)
+            sheet.set_column('F:F', 15)
+        
+        # Đóng workbook
+        workbook.close()
+        
+        # Thiết lập response
+        output.seek(0)
+        response = HttpResponse(
+            output,
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = f'attachment; filename=doanh_thu_thang_{selected_month}-{selected_year}.xlsx'
+        return response
     
     def get_form(self, request, obj=None, **kwargs):
         # Xử lý các tham số URL để thay đổi trạng thái
@@ -733,848 +1187,534 @@ class OrderAdmin(admin.ModelAdmin):
         if '_changeto' in request.GET:
             return self.response_post_save_change(request, obj)
         return super().response_change(request, obj)
-    
-    def generate_invoice_pdf(self, request, order_id):
-        """Tạo file PDF hóa đơn cho đơn hàng và đánh dấu đơn hàng là hoàn thành"""
+
+    def num2words_vi(self, num):
+        """Chuyển đổi số thành chữ tiếng Việt"""
+        if num == 0:
+            return "không"
+            
+        units = ["", "một", "hai", "ba", "bốn", "năm", "sáu", "bảy", "tám", "chín"]
+        teens = ["", "mười một", "mười hai", "mười ba", "mười bốn", "mười lăm", "mười sáu", "mười bảy", "mười tám", "mười chín"]
+        tens = ["", "mười", "hai mươi", "ba mươi", "bốn mươi", "năm mươi", "sáu mươi", "bảy mươi", "tám mươi", "chín mươi"]
+        
+        # Xử lý các trường hợp đặc biệt
+        if 1 <= num < 10:
+            return units[num]
+        elif 10 <= num < 20:
+            if num == 10:
+                return "mười"
+            else:
+                return teens[num - 10]
+        elif 20 <= num < 100:
+            unit = num % 10
+            ten = num // 10
+            if unit == 0:
+                return tens[ten]
+            elif unit == 1:
+                return tens[ten] + " mốt"
+            elif unit == 5:
+                return tens[ten] + " lăm"
+            else:
+                return tens[ten] + " " + units[unit]
+        elif 100 <= num < 1000:
+            hundred = num // 100
+            remainder = num % 100
+            if remainder == 0:
+                return units[hundred] + " trăm"
+            else:
+                return units[hundred] + " trăm " + self.num2words_vi(remainder)
+        elif 1000 <= num < 1000000:
+            thousand = num // 1000
+            remainder = num % 1000
+            if remainder == 0:
+                return self.num2words_vi(thousand) + " nghìn"
+            else:
+                result = self.num2words_vi(thousand) + " nghìn"
+                if remainder < 100:
+                    result += " không trăm"
+                return result + " " + self.num2words_vi(remainder)
+        elif 1000000 <= num < 1000000000:
+            million = num // 1000000
+            remainder = num % 1000000
+            if remainder == 0:
+                return self.num2words_vi(million) + " triệu"
+            else:
+                result = self.num2words_vi(million) + " triệu"
+                if remainder < 1000:
+                    result += " không nghìn"
+                return result + " " + self.num2words_vi(remainder)
+        else:
+            return str(num)  # Fallback cho số quá lớn
+
+    def generate_invoice_pdf(self, request, pk, *args, **kwargs):
+        # Biến để lưu log lỗi
+        error_logs = []
+        
         try:
-            order = Order.objects.get(id=order_id)
+            error_logs.append("1. Bắt đầu tạo PDF")
+            order = get_object_or_404(Order, pk=pk)
+            error_logs.append(f"2. Đã tìm đơn hàng #{order.id}")
             
-            # Kiểm tra trạng thái đơn hàng
-            if order.status != 'completed':
-                # Tự động cập nhật trạng thái thành hoàn thành nếu chưa
-                old_status = order.status
-                order.status = 'completed'
-                order.save()
-                messages.success(request, f"Đơn hàng #{order.id} đã được tự động cập nhật từ '{old_status}' thành 'hoàn thành' để xuất hóa đơn.")
-                
-                # Cập nhật trạng thái bàn nếu cần
-                self.check_table_status(request)
+            # Tạo buffer để ghi PDF
+            buffer = BytesIO()
+            error_logs.append("3. Đã tạo buffer BytesIO")
             
-            # Chuẩn bị dữ liệu cho hóa đơn
-            order_items = order.orderitem_set.all()
+            # Sử dụng phương pháp tìm kiếm font đơn giản và hiệu quả
+            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            possible_font_locations = [
+                os.path.join(base_dir, 'static', 'fonts'),
+                os.path.join(base_dir, 'cafe_project', 'static', 'fonts'),
+                os.path.join(base_dir, 'staticfiles', 'fonts'),
+            ]
             
-            if not order_items.exists():
-                messages.warning(request, f"Đơn hàng #{order.id} không có món nào. Không thể xuất hóa đơn.")
-                return HttpResponseRedirect(reverse('admin:orders_order_change', args=[order_id]))
+            # Tìm font trong các thư mục có thể
+            font_files = {
+                'dejavusans.ttf': None,
+                'dejavusans-bold.ttf': None
+            }
+            
+            # Tìm kiếm font
+            for font_name in font_files:
+                for location in possible_font_locations:
+                    font_path = os.path.join(location, font_name)
+                    if os.path.exists(font_path) and os.path.getsize(font_path) > 100000:
+                        font_files[font_name] = font_path
+                        error_logs.append(f"4. Tìm thấy font {font_name} tại {font_path}")
+                        break
+            
+            # Kiểm tra xem có tìm thấy cả hai font không
+            if not font_files['dejavusans.ttf'] or not font_files['dejavusans-bold.ttf']:
+                error_msg = "Không tìm thấy font DejaVu Sans. Vui lòng chạy script download_vietnamese_fonts.py."
+                error_logs.append(f"Lỗi: {error_msg}")
+                messages.error(request, error_msg)
+                return HttpResponseRedirect(request.META.get('HTTP_REFERER', '/'))
+        except Exception as e:
+            error_msg = f"Lỗi khi tìm font: {str(e)}"
+            error_logs.append(error_msg)
+            messages.error(request, error_msg)
+            return HttpResponseRedirect(request.META.get('HTTP_REFERER', '/'))
+            
+        # Import các thư viện ReportLab
+        try:
+            from reportlab.pdfbase import pdfmetrics
+            from reportlab.pdfbase.ttfonts import TTFont
+            from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+            from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
+            from reportlab.lib.units import cm, mm
+            from reportlab.lib import colors
+            from reportlab.lib.pagesizes import A4
+            error_logs.append("5. Đã import thư viện ReportLab")
+        except ImportError as e:
+            error_msg = f"Lỗi import thư viện ReportLab: {str(e)}"
+            error_logs.append(error_msg)
+            messages.error(request, error_msg)
+            return HttpResponseRedirect(request.META.get('HTTP_REFERER', '/'))
+            
+        # Đăng ký font DejaVuSans cho tiếng Việt
+        try:
+            # Kiểm tra xem font đã được đăng ký chưa để tránh đăng ký lại
+            if 'DejaVuSans' not in pdfmetrics.getRegisteredFontNames():
+                pdfmetrics.registerFont(TTFont('DejaVuSans', font_files['dejavusans.ttf']))
+            if 'DejaVuSans-Bold' not in pdfmetrics.getRegisteredFontNames():
+                pdfmetrics.registerFont(TTFont('DejaVuSans-Bold', font_files['dejavusans-bold.ttf']))
+            
+            # Đăng ký ánh xạ font để đảm bảo tiếng Việt hiển thị đúng
+            pdfmetrics.registerFontFamily('DejaVuSans', normal='DejaVuSans', bold='DejaVuSans-Bold')
+            
+            error_logs.append("6. Đã đăng ký font DejaVuSans")
+        except Exception as font_error:
+            error_msg = f"Lỗi khi đăng ký font: {str(font_error)}"
+            error_logs.append(error_msg)
+            messages.error(request, error_msg)
+            return HttpResponseRedirect(request.META.get('HTTP_REFERER', '/'))
+            
+        # Tạo document
+        try:
+            # Sử dụng lề lớn hơn để tạo không gian trắng tốt hơn
+            doc = SimpleDocTemplate(
+                buffer,
+                pagesize=A4,
+                rightMargin=15*mm,
+                leftMargin=15*mm,
+                topMargin=15*mm,
+                bottomMargin=15*mm
+            )
+            error_logs.append("7. Đã tạo SimpleDocTemplate")
+        except Exception as doc_error:
+            error_msg = f"Lỗi khi tạo document: {str(doc_error)}"
+            error_logs.append(error_msg)
+            messages.error(request, error_msg)
+            return HttpResponseRedirect(request.META.get('HTTP_REFERER', '/'))
+            
+        # Định nghĩa màu sắc
+        primary_color = colors.HexColor('#2d2d2d')  # Màu chính - xám đậm
+        secondary_color = colors.HexColor('#555555')  # Màu phụ - xám nhạt
+        accent_color = colors.HexColor('#8B4513')  # Màu nhấn - nâu cà phê
+        light_gray = colors.HexColor('#f5f5f5')  # Màu xám nhạt cho nền
+        
+        # Tạo styles
+        try:
+            styles = getSampleStyleSheet()
+            
+            # Style cho tiêu đề
+            styles.add(ParagraphStyle(
+                name='TitleStyle', 
+                fontName='DejaVuSans-Bold', 
+                fontSize=24, 
+                alignment=1, 
+                spaceAfter=6,
+                leading=28,
+                textColor=primary_color
+            ))
+            
+            # Style cho tiêu đề phụ
+            styles.add(ParagraphStyle(
+                name='SubTitleStyle', 
+                fontName='DejaVuSans-Bold', 
+                fontSize=16, 
+                alignment=1, 
+                textColor=primary_color,
+                spaceBefore=6,
+                spaceAfter=6,
+                leading=20
+            ))
+            
+            # Style cho địa chỉ
+            styles.add(ParagraphStyle(
+                name='AddressStyle', 
+                fontName='DejaVuSans', 
+                fontSize=9, 
+                leading=11, 
+                alignment=1,
+                spaceBefore=2,
+                textColor=secondary_color
+            ))
+            
+            # Style cho text thường
+            styles.add(ParagraphStyle(
+                name='NormalStyle', 
+                fontName='DejaVuSans', 
+                fontSize=10, 
+                leading=12,
+                textColor=primary_color
+            ))
+            
+            # Style cho text đậm
+            styles.add(ParagraphStyle(
+                name='BoldStyle', 
+                fontName='DejaVuSans-Bold', 
+                fontSize=10, 
+                leading=12,
+                textColor=primary_color
+            ))
+            
+            # Style cho text thường căn giữa
+            styles.add(ParagraphStyle(
+                name='NormalCenter', 
+                fontName='DejaVuSans', 
+                fontSize=10, 
+                leading=12,
+                alignment=1,
+                textColor=primary_color
+            ))
+            
+            # Style cho text thường căn phải
+            styles.add(ParagraphStyle(
+                name='NormalRight', 
+                fontName='DejaVuSans', 
+                fontSize=10, 
+                leading=12,
+                alignment=2,
+                textColor=primary_color
+            ))
+            
+            # Style cho text đậm căn phải
+            styles.add(ParagraphStyle(
+                name='BoldRight', 
+                fontName='DejaVuSans-Bold', 
+                fontSize=10, 
+                leading=12,
+                alignment=2,
+                textColor=primary_color
+            ))
+            
+            # Style cho header
+            styles.add(ParagraphStyle(
+                name='HeaderStyle', 
+                fontName='DejaVuSans-Bold', 
+                fontSize=11, 
+                leading=14, 
+                alignment=0,
+                textColor=primary_color,
+                spaceBefore=6,
+                spaceAfter=6
+            ))
+            
+            # Style cho header căn giữa
+            styles.add(ParagraphStyle(
+                name='HeaderCenter', 
+                fontName='DejaVuSans-Bold', 
+                fontSize=11, 
+                leading=14, 
+                alignment=1,
+                textColor=primary_color
+            ))
+            
+            # Style cho chân trang
+            styles.add(ParagraphStyle(
+                name='FooterStyle', 
+                fontName='DejaVuSans', 
+                fontSize=9, 
+                leading=11, 
+                alignment=1, 
+                textColor=secondary_color
+            ))
+            
+            # Style cho số tiền bằng chữ
+            styles.add(ParagraphStyle(
+                name='AmountWordsStyle', 
+                fontName='DejaVuSans-Bold', 
+                fontSize=10, 
+                leading=12, 
+                textColor=primary_color,
+                leftIndent=0
+            ))
+            
+            # Style cho lời cảm ơn
+            styles.add(ParagraphStyle(
+                name='ThankYouStyle', 
+                fontName='DejaVuSans-Bold', 
+                fontSize=13, 
+                leading=16, 
+                alignment=1,
+                textColor=accent_color,
+                spaceBefore=10,
+                spaceAfter=10
+            ))
+            
+            error_logs.append("8. Đã tạo styles")
+        except Exception as style_error:
+            error_msg = f"Lỗi khi tạo styles: {str(style_error)}"
+            error_logs.append(error_msg)
+            messages.error(request, error_msg)
+            return HttpResponseRedirect(request.META.get('HTTP_REFERER', '/'))
+            
+        # Tạo các phần tử của PDF
+        try:
+            elements = []
+            
+            # Thêm khoảng trống ở đầu trang
+            elements.append(Spacer(1, 5*mm))
+            
+            # Tiêu đề TOMCAFE
+            elements.append(Paragraph("TOMCAFE", styles['TitleStyle']))
+            elements.append(Spacer(1, 3*mm))
+            
+            # Thông tin địa chỉ
+            address_data = [
+                [Paragraph("312 Lý Thường Kiệt, TP.Đồng Hới, Quảng Bình", styles['AddressStyle'])],
+                [Paragraph("Điện thoại: 0348287671 - Email: tomcafe20@gmail.com", styles['AddressStyle'])],
+                [Paragraph("Giờ mở cửa: T2-CN: 08:00 - 22:00", styles['AddressStyle'])]
+            ]
+            
+            address_table = Table(address_data, colWidths=[doc.width])
+            address_table.setStyle(TableStyle([
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+                ('TOPPADDING', (0, 0), (0, 0), 2),
+            ]))
+            elements.append(address_table)
+            
+            # Thêm đường kẻ ngang
+            elements.append(Spacer(1, 6*mm))
+            elements.append(Table([['']], colWidths=[doc.width], rowHeights=[0.5]))
+            elements[-1].setStyle(TableStyle([('LINEABOVE', (0, 0), (-1, -1), 1, accent_color)]))
+            elements.append(Spacer(1, 6*mm))
+            
+            # Tiêu đề hóa đơn
+            elements.append(Paragraph("HÓA ĐƠN THANH TOÁN", styles['SubTitleStyle']))
+            elements.append(Spacer(1, 3*mm))
+            
+            # Số hóa đơn
+            elements.append(Paragraph(f"Số: #{order.id}", styles['BoldStyle']))
+            elements.append(Spacer(1, 8*mm))
+            
+            # Thông tin đơn hàng header
+            order_info_header = Table(
+                [[Paragraph("Thông tin đơn hàng:", styles['HeaderStyle'])]],
+                colWidths=[doc.width]
+            )
+            order_info_header.setStyle(TableStyle([
+                ('VALIGN', (0, 0), (0, 0), 'MIDDLE'),
+                ('LEFTPADDING', (0, 0), (0, 0), 10),
+                ('BOTTOMPADDING', (0, 0), (0, 0), 5),
+                ('TOPPADDING', (0, 0), (0, 0), 5),
+                ('RIGHTPADDING', (0, 0), (0, 0), 10),
+                ('LINEBELOW', (0, 0), (0, 0), 0.5, primary_color),
+            ]))
+            elements.append(order_info_header)
+            elements.append(Spacer(1, 2*mm))
+            
+            # Thông tin chi tiết đơn hàng
+            # Convert order creation date to local timezone
+            local_datetime = timezone.localtime(order.created_at)
+            formatted_datetime = local_datetime.strftime("%d/%m/%Y %H:%M")
+            
+            order_details = [
+                [Paragraph("Khách hàng:", styles['BoldStyle']), Paragraph(f"{order.customer_name}", styles['NormalStyle'])],
+                [Paragraph("Bàn:", styles['BoldStyle']), Paragraph(f"{order.table.number if order.table else 'N/A'}", styles['NormalStyle'])],
+                [Paragraph("Ngày:", styles['BoldStyle']), Paragraph(f"{formatted_datetime}", styles['NormalStyle'])],
+                [Paragraph("Trạng thái:", styles['BoldStyle']), Paragraph("Hoàn thành", styles['BoldStyle'])]
+            ]
+            
+            order_details_table = Table(order_details, colWidths=[3*cm, 12*cm])
+            order_details_table.setStyle(TableStyle([
+                ('ALIGN', (0, 0), (0, -1), 'LEFT'),
+                ('ALIGN', (1, 0), (1, -1), 'LEFT'),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('GRID', (0, 0), (-1, -1), 0.25, secondary_color),
+                ('LEFTPADDING', (0, 0), (-1, -1), 5),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 5),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+                ('TOPPADDING', (0, 0), (-1, -1), 3),
+            ]))
+            elements.append(order_details_table)
+            elements.append(Spacer(1, 8*mm))
+            
+            # Header cho chi tiết đơn hàng
+            order_items_header = Table(
+                [[Paragraph("Chi tiết đơn hàng:", styles['HeaderStyle'])]],
+                colWidths=[doc.width]
+            )
+            order_items_header.setStyle(TableStyle([
+                ('VALIGN', (0, 0), (0, 0), 'MIDDLE'),
+                ('LEFTPADDING', (0, 0), (0, 0), 10),
+                ('BOTTOMPADDING', (0, 0), (0, 0), 5),
+                ('TOPPADDING', (0, 0), (0, 0), 5),
+                ('RIGHTPADDING', (0, 0), (0, 0), 10),
+                ('LINEBELOW', (0, 0), (0, 0), 0.5, primary_color),
+            ]))
+            elements.append(order_items_header)
+            elements.append(Spacer(1, 2*mm))
+            
+            # Bảng chi tiết sản phẩm - Sử dụng Paragraph cho tất cả các trường với styles riêng
+            items_data = [
+                [
+                    Paragraph("STT", styles['HeaderCenter']),
+                    Paragraph("Sản phẩm", styles['HeaderCenter']),
+                    Paragraph("Số lượng", styles['HeaderCenter']),
+                    Paragraph("Đơn giá", styles['HeaderCenter']),
+                    Paragraph("Thành tiền", styles['HeaderCenter'])
+                ]
+            ]
             
             total = 0
-            items_data = []
-            for item in order_items:
-                name = 'Món không xác định'
-                price = 0
-                
+            item_index = 1
+            for item in order.orderitem_set.all():
                 if item.menu_item:
                     name = item.menu_item.name
                     price = item.menu_item.price
                 elif item.item:
                     name = item.item.name
                     price = item.item.price
-                    
+                else:
+                    continue
+                
                 subtotal = price * item.quantity
                 total += subtotal
                 
-                items_data.append({
-                    'name': name,
-                    'quantity': item.quantity,
-                    'price': f"{price:,.0f} đ",
-                    'subtotal': f"{subtotal:,.0f} đ",
-                })
+                # Sử dụng Paragraph với styles riêng cho từng trường
+                items_data.append([
+                    Paragraph(str(item_index), styles['NormalCenter']),
+                    Paragraph(name, styles['NormalStyle']),
+                    Paragraph(str(item.quantity), styles['NormalCenter']),
+                    Paragraph(f"{price:,.0f}", styles['NormalRight']),
+                    Paragraph(f"{subtotal:,.0f}", styles['NormalRight'])
+                ])
+                
+                item_index += 1
             
-            # Import cấu hình PDF hoặc sử dụng giá trị mặc định
-            cafe_info = {
-                'name': 'TomCafe - Quản lý quán cà phê',
-                'address': '312 Lý Thường Kiệt, TP.Đồng Hới, Quảng Bình',
-                'phone': '0348287671',
-                'email': 'tomcafe20@gmail.com',
-            }
+            # Thêm tổng cộng
+            items_data.append([
+                Paragraph("", styles['NormalStyle']),
+                Paragraph("", styles['NormalStyle']),
+                Paragraph("", styles['NormalStyle']),
+                Paragraph("Tổng cộng:", styles['BoldRight']),
+                Paragraph(f"{total:,.0f}" + "đ", styles['BoldRight'])
+            ])
             
-            try:
-                from cafe_project.static.pdf_config import CAFE_INFO
-                cafe_info.update(CAFE_INFO)
-            except (ImportError, AttributeError):
-                # Sử dụng giá trị mặc định nếu không import được
-                pass
+            # Định dạng cột cho bảng items
+            col_widths = [1.2*cm, 9*cm, 2*cm, 3*cm, 3*cm]
             
-            # Tạo context cho template
-            context = {
-                'order': order,
-                'order_items': items_data,
-                'total': f"{total:,.0f} đ",
-                'total_text': self.convert_to_vietnamese_words(total),
-                'today': timezone.now().strftime("%d/%m/%Y"),
-                'time': timezone.now().strftime("%H:%M:%S"),
-                'invoice_number': f"HD-{order.id}-{timezone.now().strftime('%Y%m%d%H%M%S')}",
-                'cafe_name': cafe_info['name'],
-                'cafe_address': cafe_info['address'],
-                'cafe_phone': cafe_info['phone'],
-                'cafe_email': cafe_info['email'],
-                'STATIC_URL': settings.STATIC_URL,
-            }
+            # Tạo bảng sản phẩm
+            items_table = Table(items_data, colWidths=col_widths)
             
-            # Thử tìm template từ nhiều vị trí
-            template_paths = [
-                'admin/orders/order/invoice_pdf.html',
-                'orders/invoice_pdf.html',
-                'invoice_pdf.html'
+            # Định dạng bảng
+            table_style = [
+                # Viền ngoài và lưới bên trong
+                ('GRID', (0, 0), (-1, -2), 0.25, secondary_color),
+                
+                # Căn giữa theo chiều dọc cho tất cả các ô
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                
+                # Padding
+                ('TOPPADDING', (0, 0), (-1, -1), 5),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+                ('LEFTPADDING', (0, 0), (-1, -1), 5),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 5),
+                
+                # Dòng tổng cộng
+                ('LINEABOVE', (3, -1), (4, -1), 1, primary_color),
+                ('TOPPADDING', (3, -1), (4, -1), 7),
             ]
             
-            template = None
-            for template_path in template_paths:
-                try:
-                    template = get_template(template_path)
-                    break
-                except:
-                    continue
+            items_table.setStyle(TableStyle(table_style))
+            elements.append(items_table)
+            elements.append(Spacer(1, 8*mm))
             
-            if template is None:
-                # Nếu không tìm thấy template, tạo nội dung HTML đơn giản
-                html = f"""
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <meta charset="utf-8">
-                    <title>Hóa đơn #{order.id}</title>
-                    <style>
-                        body {{ font-family: Arial, sans-serif; margin: 0; padding: 20px; }}
-                        .invoice-header {{ text-align: center; margin-bottom: 30px; }}
-                        .invoice-title {{ font-size: 24px; font-weight: bold; margin: 10px 0; }}
-                        .cafe-info {{ margin-bottom: 20px; }}
-                        .customer-info {{ margin-bottom: 20px; }}
-                        table {{ width: 100%; border-collapse: collapse; margin: 20px 0; }}
-                        th, td {{ border: 1px solid #ddd; padding: 8px; }}
-                        th {{ background-color: #f2f2f2; text-align: left; }}
-                        .total-row {{ font-weight: bold; }}
-                        .footer {{ margin-top: 30px; text-align: center; }}
-                    </style>
-                </head>
-                <body>
-                    <div class="invoice-header">
-                        <div class="invoice-title">HÓA ĐƠN THANH TOÁN</div>
-                        <div>Số: {context['invoice_number']}</div>
-                        <div>Ngày: {context['today']}</div>
-                    </div>
-                    
-                    <div class="cafe-info">
-                        <div><strong>{cafe_info['name']}</strong></div>
-                        <div>Địa chỉ: {cafe_info['address']}</div>
-                        <div>Điện thoại: {cafe_info['phone']} | Email: {cafe_info['email']}</div>
-                    </div>
-                    
-                    <div class="customer-info">
-                        <div><strong>Thông tin khách hàng:</strong></div>
-                        <div>Tên khách hàng: {order.customer_name}</div>
-                        <div>Bàn: {order.table if order.table else 'Không có'}</div>
-                        <div>Thời gian: {order.created_at.strftime('%H:%M:%S %d/%m/%Y')}</div>
-                    </div>
-                    
-                    <table>
-                        <thead>
-                            <tr>
-                                <th style="width: 5%;">STT</th>
-                                <th style="width: 45%;">Tên món</th>
-                                <th style="width: 10%;">SL</th>
-                                <th style="width: 20%;">Đơn giá</th>
-                                <th style="width: 20%;">Thành tiền</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                """
-                
-                for index, item in enumerate(items_data, 1):
-                    html += f"""
-                            <tr>
-                                <td style="text-align: center;">{index}</td>
-                                <td>{item['name']}</td>
-                                <td style="text-align: center;">{item['quantity']}</td>
-                                <td style="text-align: right;">{item['price']}</td>
-                                <td style="text-align: right;">{item['subtotal']}</td>
-                            </tr>
-                    """
-                
-                html += f"""
-                        </tbody>
-                        <tfoot>
-                            <tr class="total-row">
-                                <td colspan="4" style="text-align: right;"><strong>Tổng cộng:</strong></td>
-                                <td style="text-align: right;"><strong>{context['total']}</strong></td>
-                            </tr>
-                            <tr>
-                                <td colspan="5" style="text-align: left;"><em>Bằng chữ: {context['total_text']}</em></td>
-                            </tr>
-                        </tfoot>
-                    </table>
-                    
-                    <div class="footer">
-                        <p>Cảm ơn quý khách đã sử dụng dịch vụ của chúng tôi!</p>
-                        <p><em>In lúc: {context['time']} ngày {context['today']}</em></p>
-                    </div>
-                </body>
-                </html>
-                """
-            else:
-                html = template.render(context)
+            # Số tiền bằng chữ
+            amount_in_words = "Bằng chữ: " + self.num2words_vi(int(total)).capitalize() + " đồng"
+            elements.append(Paragraph(amount_in_words, styles['AmountWordsStyle']))
+            elements.append(Spacer(1, 15*mm))
             
-            # Tạo response với Content-Type là PDF
-            response = HttpResponse(content_type='application/pdf')
-            filename = f'HoaDon_Ban{order.table.number if order.table else "KhongBan"}_{order.id}.pdf'
-            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            # Thêm dòng cảm ơn
+            elements.append(Paragraph("Cảm ơn quý khách đã sử dụng dịch vụ của TomCafe!", styles['ThankYouStyle']))
             
-            # Tạo hàm callback để xử lý đường dẫn tĩnh
-            def link_callback(uri, rel):
-                """
-                Xử lý các đường dẫn đến file tĩnh (fonts, images, etc.)
-                """
-                # Đường dẫn tương đối
-                if uri.startswith('/'):
-                    uri = uri[1:]
-                
-                # Kiểm tra các loại uri
-                if uri.startswith(settings.STATIC_URL):
-                    path = os.path.join(settings.STATIC_ROOT, uri.replace(settings.STATIC_URL, ""))
-                elif uri.startswith(settings.MEDIA_URL):
-                    path = os.path.join(settings.MEDIA_ROOT, uri.replace(settings.MEDIA_URL, ""))
-                else:
-                    # Đường dẫn tương đối khác
-                    path = os.path.join(settings.BASE_DIR, uri)
-                
-                # Kiểm tra file tồn tại
-                if not os.path.isfile(path):
-                    # Thử tìm ở các vị trí thay thế
-                    alt_paths = [
-                        os.path.join(settings.BASE_DIR, 'cafe_project', 'static', uri.replace(settings.STATIC_URL, "")),
-                        os.path.join(settings.BASE_DIR, 'static', uri.replace(settings.STATIC_URL, "")),
-                        os.path.join(settings.BASE_DIR, uri)
-                    ]
-                    
-                    for alt_path in alt_paths:
-                        if os.path.isfile(alt_path):
-                            return alt_path
-                    
-                    # Nếu không tìm thấy, trả về uri gốc
-                    return uri
-                
-                # Trả về đường dẫn tuyệt đối
-                return path
+            # Thêm thông tin hóa đơn ở cuối
+            elements.append(Spacer(1, 8*mm))
+            elements.append(Paragraph(f"Hóa đơn số: #{order.id} - Ngày: {formatted_datetime}", styles['FooterStyle']))
             
-            # Tạo PDF từ HTML với cấu hình
-            pisa_status = pisa.CreatePDF(
-                src=html, 
-                dest=response, 
-                encoding='utf-8',
-                link_callback=link_callback
-            )
+            error_logs.append("9. Đã tạo các phần tử PDF")
+        except Exception as elements_error:
+            error_msg = f"Lỗi khi tạo các phần tử PDF: {str(elements_error)}"
+            error_logs.append(error_msg)
+            messages.error(request, error_msg)
+            return HttpResponseRedirect(request.META.get('HTTP_REFERER', '/'))
             
-            # Nếu lỗi
-            if pisa_status.err:
-                messages.error(request, f"Có lỗi khi tạo file PDF: {pisa_status.err}")
-                return HttpResponseRedirect(reverse('admin:orders_order_change', args=[order_id]))
-                
-            return response
-            
-        except Order.DoesNotExist:
-            messages.error(request, f"Không tìm thấy đơn hàng với ID {order_id}.")
-            return HttpResponseRedirect(reverse('admin:orders_order_changelist'))
-        except Exception as e:
-            # Log chi tiết lỗi để dễ dàng debug
-            import traceback
-            error_details = traceback.format_exc()
-            print(f"PDF Export Error: {error_details}")
-            
-            messages.error(request, f"Lỗi khi tạo hóa đơn: {str(e)}")
-            return HttpResponseRedirect(reverse('admin:orders_order_change', args=[order_id]))
-
-    def convert_to_vietnamese_words(self, number):
-        """Chuyển đổi số tiền thành chữ tiếng Việt"""
-        if number == 0:
-            return "Không đồng"
-            
-        units = ["", "nghìn", "triệu", "tỷ", "nghìn tỷ", "triệu tỷ"]
-        words = ["không", "một", "hai", "ba", "bốn", "năm", "sáu", "bảy", "tám", "chín"]
-        
-        def read_group(group):
-            hundred = group // 100
-            ten = (group % 100) // 10
-            unit = group % 10
-            
-            result = ""
-            if hundred > 0:
-                result += words[hundred] + " trăm "
-                
-            if ten > 0:
-                if ten == 1:
-                    result += "mười "
-                else:
-                    result += words[ten] + " mươi "
-                    
-                if unit == 1 and ten > 1:
-                    result += "mốt "
-                elif unit == 5 and ten > 0:
-                    result += "lăm "
-                elif unit > 0 and ten != 1:
-                    result += words[unit] + " "
-            elif unit > 0:
-                result += words[unit] + " "
-                
-            return result.strip()
-        
-        num_str = str(int(number))
-        num_groups = []
-        
-        # Chia số thành các nhóm 3 chữ số
-        for i in range(len(num_str), 0, -3):
-            if i >= 3:
-                num_groups.append(int(num_str[i-3:i]))
-            else:
-                num_groups.append(int(num_str[0:i]))
-                
-        # Đảo ngược lại để đọc từ trái sang phải
-        num_groups.reverse()
-        
-        result = ""
-        for i, group in enumerate(num_groups):
-            if group > 0:
-                result += read_group(group) + " " + units[len(num_groups) - i - 1] + " "
-                
-        return result.strip() + " đồng"
-    
-    def export_daily_report_excel(self, request):
-        """Xuất báo cáo doanh thu ngày ra file Excel sử dụng xlsxwriter"""
-        # Kiểm tra và cập nhật trạng thái bàn trước khi xuất báo cáo
-        self.check_table_status(request)
-        
-        # Create BytesIO object
-        output = BytesIO()
-        
+        # Tạo PDF
         try:
-            # Phần còn lại của code giữ nguyên
-            today = timezone.now().date()
+            doc.build(elements)
+            error_logs.append("10. Đã tạo PDF thành công")
+        except Exception as build_error:
+            error_msg = f"Lỗi khi tạo PDF: {str(build_error)}"
+            error_logs.append(error_msg)
+            messages.error(request, error_msg)
+            return HttpResponseRedirect(request.META.get('HTTP_REFERER', '/'))
             
-            # Lấy ngày từ query param nếu có
-            date_str = request.GET.get('date', None)
-            if date_str:
-                try:
-                    selected_date = datetime.datetime.strptime(date_str, '%Y-%m-%d').date()
-                except ValueError:
-                    selected_date = today
-            else:
-                selected_date = today
-            
-            # Lấy đơn hàng hoàn thành trong ngày
-            completed_orders = Order.objects.filter(
-                status='completed',
-                created_at__date=selected_date
-            )
-            
-            # Lấy tất cả đơn hàng trong ngày
-            all_orders = Order.objects.filter(
-                created_at__date=selected_date
-            )
-            
-            # Đếm số đơn hàng theo từng trạng thái
-            pending_count = all_orders.filter(status='pending').count()
-            preparing_count = all_orders.filter(status='preparing').count()
-            completed_count = completed_orders.count()
-            cancelled_count = all_orders.filter(status='cancelled').count()
-            
-            # Tính tổng doanh thu
-            total_revenue = 0
-            for order in completed_orders:
-                for item in order.orderitem_set.all():
-                    if item.menu_item:
-                        total_revenue += item.menu_item.price * item.quantity
-                    elif item.item:
-                        total_revenue += item.item.price * item.quantity
-            
-            # Tính giá trị đơn hàng trung bình
-            avg_order_value = 0
-            if completed_count > 0:
-                avg_order_value = total_revenue / completed_count
-            
-            # Tạo dữ liệu về các món bán chạy
-            top_items = {}
-            for order in completed_orders:
-                for item in order.orderitem_set.all():
-                    name = 'Món không xác định'
-                    if item.menu_item:
-                        name = item.menu_item.name
-                    elif item.item:
-                        name = item.item.name
-                    
-                    if name in top_items:
-                        top_items[name] += item.quantity
-                    else:
-                        top_items[name] = item.quantity
-            
-            # Sắp xếp các món bán chạy
-            top_items_sorted = sorted(top_items.items(), key=lambda x: x[1], reverse=True)
-            
-            # Tạo file Excel
-            workbook = xlsxwriter.Workbook(output)
-            
-            # Tạo worksheet
-            worksheet = workbook.add_worksheet(f'Doanh thu {selected_date.strftime("%d-%m-%Y")}')
-            
-            # Định dạng style
-            title_format = workbook.add_format({
-                'font_name': 'Arial',
-                'font_size': 16,
-                'bold': True,
-                'align': 'center',
-                'valign': 'vcenter'
-            })
-            
-            header_format = workbook.add_format({
-                'font_name': 'Arial',
-                'font_size': 12,
-                'bold': True,
-                'align': 'center',
-                'valign': 'vcenter',
-                'bg_color': '#E1F0DA',
-                'border': 1
-            })
-            
-            normal_format = workbook.add_format({
-                'font_name': 'Arial',
-                'font_size': 11,
-                'border': 1
-            })
-            
-            total_format = workbook.add_format({
-                'font_name': 'Arial',
-                'font_size': 14,
-                'bold': True,
-                'num_format': '#,##0 ₫'
-            })
-            
-            money_format = workbook.add_format({
-                'num_format': '#,##0 ₫',
-                'border': 1
-            })
-            
-            center_format = workbook.add_format({
-                'font_name': 'Arial',
-                'font_size': 11,
-                'align': 'center',
-                'border': 1
-            })
-            
-            # Tiêu đề báo cáo
-            worksheet.merge_range('A1:G1', f'BÁO CÁO DOANH THU NGÀY {selected_date.strftime("%d-%m-%Y")}', title_format)
-            
-            # Thông tin tổng quan
-            worksheet.write('A3', 'Tổng số đơn hàng:', header_format)
-            worksheet.write('B3', all_orders.count(), normal_format)
-            
-            worksheet.write('A4', 'Đơn đã hoàn thành:', header_format)
-            worksheet.write('B4', completed_count, normal_format)
-            
-            worksheet.write('A5', 'Đơn đang chờ xử lý:', header_format)
-            worksheet.write('B5', pending_count, normal_format)
-            
-            worksheet.write('A6', 'Đơn đang chuẩn bị:', header_format)
-            worksheet.write('B6', preparing_count, normal_format)
-            
-            worksheet.write('A7', 'Đơn đã hủy:', header_format)
-            worksheet.write('B7', cancelled_count, normal_format)
-            
-            worksheet.write('A8', 'TỔNG DOANH THU:', total_format)
-            worksheet.write('B8', total_revenue, total_format)
-            
-            worksheet.write('A9', 'GIÁ TRỊ ĐƠN TRUNG BÌNH:', total_format)
-            worksheet.write('B9', avg_order_value, total_format)
-            
-            # Danh sách top món bán chạy
-            worksheet.merge_range('A11:C11', 'TOP MÓN BÁN CHẠY', header_format)
-            
-            # Header cho top món
-            worksheet.write('A12', 'STT', header_format)
-            worksheet.write('B12', 'Tên món', header_format)
-            worksheet.write('C12', 'Số lượng bán', header_format)
-            
-            # Dữ liệu top món
-            row = 12
-            for i, (item_name, quantity) in enumerate(top_items_sorted, 1):
-                row += 1
-                worksheet.write(row, 0, i, center_format)
-                worksheet.write(row, 1, item_name, normal_format)
-                worksheet.write(row, 2, quantity, center_format)
-            
-            # Chi tiết từng đơn hàng
-            row += 3
-            worksheet.merge_range(row, 0, row, 6, 'CHI TIẾT ĐƠN HÀNG HOÀN THÀNH', header_format)
-            
-            # Header cho chi tiết đơn hàng
-            row += 1
-            worksheet.write(row, 0, 'Mã đơn', header_format)
-            worksheet.write(row, 1, 'Khách hàng', header_format)
-            worksheet.write(row, 2, 'Bàn', header_format)
-            worksheet.write(row, 3, 'Thời gian', header_format)
-            worksheet.write(row, 4, 'Số món', header_format)
-            worksheet.write(row, 5, 'Tổng tiền', header_format)
-            
-            # Dữ liệu chi tiết đơn hàng
-            for order in completed_orders:
-                row += 1
-                
-                # Tính tổng tiền đơn hàng
-                order_total = 0
-                for item in order.orderitem_set.all():
-                    if item.menu_item:
-                        order_total += item.menu_item.price * item.quantity
-                    elif item.item:
-                        order_total += item.item.price * item.quantity
-                
-                # Ghi dữ liệu vào sheet
-                worksheet.write(row, 0, f'#{order.id}', center_format)
-                worksheet.write(row, 1, order.customer_name, normal_format)
-                worksheet.write(row, 2, str(order.table) if order.table else 'Không có', center_format)
-                worksheet.write(row, 3, order.created_at.strftime('%H:%M:%S'), center_format)
-                worksheet.write(row, 4, order.orderitem_set.count(), center_format)
-                worksheet.write(row, 5, order_total, money_format)
-            
-            # Điều chỉnh độ rộng cột
-            worksheet.set_column('A:G', 20)
-            
-            # Đóng workbook
-            workbook.close()
-            
-            # Tạo response
-            output.seek(0)
-            response = HttpResponse(
-                output.read(),
-                content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-            )
-            response['Content-Disposition'] = f'attachment; filename="Doanh_thu_Tomcafe_ngay_{selected_date.strftime("%d_%m_%Y")}.xlsx"'
-            
-            return response
-            
-        except Exception as e:
-            messages.error(request, f"Lỗi khi xuất báo cáo Excel: {str(e)}")
-            return HttpResponseRedirect(reverse('admin:index'))
-        finally:
-            # Make sure to close the BytesIO object
-            output.close()
-
-    def export_monthly_report_excel(self, request):
-        """Xuất báo cáo doanh thu tháng ra file Excel sử dụng xlsxwriter"""
-        # Kiểm tra và cập nhật trạng thái bàn trước khi xuất báo cáo
-        self.check_table_status(request)
+        # Đặt con trỏ về đầu buffer
+        buffer.seek(0)
         
-        # Create BytesIO object
-        output = BytesIO()
+        # Tạo phản hồi HTTP với nội dung PDF
+        response = HttpResponse(content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="hoa_don_{order.id}.pdf"'
+        response.write(buffer.getvalue())
         
-        try:
-            # Phần còn lại của code giữ nguyên
-            today = timezone.now().date()
-            
-            # Lấy tháng từ query param nếu có
-            month_str = request.GET.get('month', None)
-            year_str = request.GET.get('year', None)
-            
-            if month_str and year_str:
-                try:
-                    selected_month = int(month_str)
-                    selected_year = int(year_str)
-                    if selected_month < 1 or selected_month > 12:
-                        selected_month = today.month
-                        selected_year = today.year
-                except ValueError:
-                    selected_month = today.month
-                    selected_year = today.year
-            else:
-                selected_month = today.month
-                selected_year = today.year
-            
-            # Ngày đầu và cuối tháng
-            first_day = datetime.date(selected_year, selected_month, 1)
-            last_day = datetime.date(selected_year, selected_month, calendar.monthrange(selected_year, selected_month)[1])
-            
-            # Lấy tất cả đơn hàng trong tháng
-            all_orders = Order.objects.filter(
-                created_at__date__gte=first_day,
-                created_at__date__lte=last_day
-            )
-            
-            # Lấy đơn hàng đã hoàn thành trong tháng
-            completed_orders = all_orders.filter(status='completed')
-            
-            # Đếm số đơn hàng theo từng trạng thái
-            pending_count = all_orders.filter(status='pending').count()
-            preparing_count = all_orders.filter(status='preparing').count()
-            completed_count = completed_orders.count()
-            cancelled_count = all_orders.filter(status='cancelled').count()
-            
-            # Tính tổng doanh thu tháng
-            total_revenue = 0
-            for order in completed_orders:
-                for item in order.orderitem_set.all():
-                    if item.menu_item:
-                        total_revenue += item.menu_item.price * item.quantity
-                    elif item.item:
-                        total_revenue += item.item.price * item.quantity
-            
-            # Tính giá trị đơn hàng trung bình
-            avg_order_value = 0
-            if completed_count > 0:
-                avg_order_value = total_revenue / completed_count
-            
-            # Tạo dữ liệu về các món bán chạy trong tháng
-            top_items = {}
-            for order in completed_orders:
-                for item in order.orderitem_set.all():
-                    name = 'Món không xác định'
-                    if item.menu_item:
-                        name = item.menu_item.name
-                    elif item.item:
-                        name = item.item.name
-                    
-                    if name in top_items:
-                        top_items[name] += item.quantity
-                    else:
-                        top_items[name] = item.quantity
-            
-            # Sắp xếp các món bán chạy
-            top_items_sorted = sorted(top_items.items(), key=lambda x: x[1], reverse=True)
-            
-            # Tạo file Excel
-            workbook = xlsxwriter.Workbook(output)
-            
-            # Worksheet tổng quan
-            overview_sheet = workbook.add_worksheet('Tong quan')
-            
-            # Worksheet doanh thu theo ngày
-            daily_sheet = workbook.add_worksheet('Doanh thu theo ngay')
-            
-            # Worksheet chi tiết đơn hàng
-            orders_sheet = workbook.add_worksheet('Chi tiet don hang')
-            
-            # Worksheet phân tích món bán chạy
-            top_items_sheet = workbook.add_worksheet('Mon ban chay')
-            
-            # Định dạng style
-            title_format = workbook.add_format({
-                'font_name': 'Arial',
-                'font_size': 16,
-                'bold': True,
-                'align': 'center',
-                'valign': 'vcenter'
-            })
-            
-            header_format = workbook.add_format({
-                'font_name': 'Arial',
-                'font_size': 12,
-                'bold': True,
-                'align': 'center',
-                'valign': 'vcenter',
-                'bg_color': '#E1F0DA',
-                'border': 1
-            })
-            
-            normal_format = workbook.add_format({
-                'font_name': 'Arial',
-                'font_size': 11,
-                'border': 1
-            })
-            
-            total_format = workbook.add_format({
-                'font_name': 'Arial',
-                'font_size': 14,
-                'bold': True,
-                'num_format': '#,##0 ₫'
-            })
-            
-            money_format = workbook.add_format({
-                'num_format': '#,##0 ₫',
-                'border': 1
-            })
-            
-            center_format = workbook.add_format({
-                'font_name': 'Arial',
-                'font_size': 11,
-                'align': 'center',
-                'border': 1
-            })
-            
-            # === Sheet Tổng quan ===
-            # Tiêu đề báo cáo
-            overview_sheet.merge_range('A1:G1', f'BÁO CÁO DOANH THU THÁNG {selected_month}-{selected_year}', title_format)
-            
-            # Thông tin tổng quan
-            overview_sheet.write('A3', 'Tổng số đơn hàng:', header_format)
-            overview_sheet.write('B3', all_orders.count(), normal_format)
-            
-            overview_sheet.write('A4', 'Đơn đã hoàn thành:', header_format)
-            overview_sheet.write('B4', completed_count, normal_format)
-            
-            overview_sheet.write('A5', 'Đơn đang chờ xử lý:', header_format)
-            overview_sheet.write('B5', pending_count, normal_format)
-            
-            overview_sheet.write('A6', 'Đơn đang chuẩn bị:', header_format)
-            overview_sheet.write('B6', preparing_count, normal_format)
-            
-            overview_sheet.write('A7', 'Đơn đã hủy:', header_format)
-            overview_sheet.write('B7', cancelled_count, normal_format)
-            
-            overview_sheet.write('A8', 'TỔNG DOANH THU THÁNG:', total_format)
-            overview_sheet.write('B8', total_revenue, total_format)
-            
-            overview_sheet.write('A9', 'GIÁ TRỊ ĐƠN TRUNG BÌNH:', total_format)
-            overview_sheet.write('B9', avg_order_value, total_format)
-            
-            # Danh sách top món bán chạy
-            overview_sheet.merge_range('A11:C11', 'TOP MÓN BÁN CHẠY TRONG THÁNG', header_format)
-            
-            # Header cho top món
-            overview_sheet.write('A12', 'STT', header_format)
-            overview_sheet.write('B12', 'Tên món', header_format)
-            overview_sheet.write('C12', 'Số lượng bán', header_format)
-            
-            # Dữ liệu top món
-            row = 12
-            for i, (item_name, quantity) in enumerate(top_items_sorted[:10], 1):  # Hiển thị top 10 món
-                row += 1
-                overview_sheet.write(row, 0, i, center_format)
-                overview_sheet.write(row, 1, item_name, normal_format)
-                overview_sheet.write(row, 2, quantity, center_format)
-            
-            # === Sheet Doanh thu theo ngày ===
-            daily_sheet.merge_range('A1:D1', f'DOANH THU THEO NGÀY - THÁNG {selected_month}-{selected_year}', title_format)
-            
-            # Header cho doanh thu theo ngày
-            daily_sheet.write('A3', 'Ngày', header_format)
-            daily_sheet.write('B3', 'Số đơn hoàn thành', header_format)
-            daily_sheet.write('C3', 'Doanh thu', header_format)
-            daily_sheet.write('D3', 'Ghi chú', header_format)
-            
-            # Tính doanh thu theo ngày
-            daily_revenue = {}
-            daily_orders_count = {}
-            
-            # Khởi tạo dữ liệu cho tất cả các ngày trong tháng
-            for day in range(1, last_day.day + 1):
-                day_date = datetime.date(selected_year, selected_month, day)
-                daily_revenue[day_date] = 0
-                daily_orders_count[day_date] = 0
-            
-            # Tính doanh thu và số đơn hàng theo ngày
-            for order in completed_orders:
-                order_date = order.created_at.date()
-                order_total = 0
-                
-                for item in order.orderitem_set.all():
-                    if item.menu_item:
-                        order_total += item.menu_item.price * item.quantity
-                    elif item.item:
-                        order_total += item.item.price * item.quantity
-                    
-                daily_revenue[order_date] += order_total
-                daily_orders_count[order_date] += 1
-            
-            # Ghi dữ liệu doanh thu theo ngày
-            row = 3
-            for day_date in sorted(daily_revenue.keys()):
-                row += 1
-                daily_sheet.write(row, 0, day_date.strftime('%d-%m-%Y'), center_format)
-                daily_sheet.write(row, 1, daily_orders_count[day_date], center_format)
-                daily_sheet.write(row, 2, daily_revenue[day_date], money_format)
-                
-                # Ghi chú
-                if daily_revenue[day_date] == 0:
-                    daily_sheet.write(row, 3, "Không có doanh thu", normal_format)
-                else:
-                    daily_sheet.write(row, 3, "", normal_format)
-            
-            # === Sheet Chi tiết đơn hàng ===
-            orders_sheet.merge_range('A1:G1', f'CHI TIẾT ĐƠN HÀNG - THÁNG {selected_month}-{selected_year}', title_format)
-            
-            # Header cho chi tiết đơn hàng
-            orders_sheet.write('A3', 'Mã đơn', header_format)
-            orders_sheet.write('B3', 'Ngày', header_format)
-            orders_sheet.write('C3', 'Giờ', header_format)
-            orders_sheet.write('D3', 'Khách hàng', header_format)
-            orders_sheet.write('E3', 'Bàn', header_format)
-            orders_sheet.write('F3', 'Số món', header_format)
-            orders_sheet.write('G3', 'Tổng tiền', header_format)
-            
-            # Dữ liệu chi tiết đơn hàng
-            row = 3
-            for order in completed_orders:
-                row += 1
-                
-                # Tính tổng tiền đơn hàng
-                order_total = 0
-                for item in order.orderitem_set.all():
-                    if item.menu_item:
-                        order_total += item.menu_item.price * item.quantity
-                    elif item.item:
-                        order_total += item.item.price * item.quantity
-                
-                # Ghi dữ liệu vào sheet
-                orders_sheet.write(row, 0, f'#{order.id}', center_format)
-                orders_sheet.write(row, 1, order.created_at.strftime('%d-%m-%Y'), center_format)
-                orders_sheet.write(row, 2, order.created_at.strftime('%H:%M:%S'), center_format)
-                orders_sheet.write(row, 3, order.customer_name, normal_format)
-                orders_sheet.write(row, 4, str(order.table) if order.table else 'Không có', center_format)
-                orders_sheet.write(row, 5, order.orderitem_set.count(), center_format)
-                orders_sheet.write(row, 6, order_total, money_format)
-            
-            # === Sheet Phân tích món bán chạy ===
-            top_items_sheet.merge_range('A1:E1', f'PHÂN TÍCH MÓN BÁN CHẠY - THÁNG {selected_month}-{selected_year}', title_format)
-            
-            # Header cho danh sách top món
-            top_items_sheet.write('A3', 'STT', header_format)
-            top_items_sheet.write('B3', 'Tên món', header_format)
-            top_items_sheet.write('C3', 'Số lượng bán', header_format)
-            top_items_sheet.write('D3', 'Tỷ lệ (%)', header_format)
-            top_items_sheet.write('E3', 'Ghi chú', header_format)
-            
-            # Tính tổng số lượng món đã bán
-            total_items_sold = sum(quantity for _, quantity in top_items_sorted)
-            
-            # Ghi dữ liệu top món
-            row = 3
-            for i, (item_name, quantity) in enumerate(top_items_sorted, 1):
-                row += 1
-                percentage = (quantity / total_items_sold * 100) if total_items_sold > 0 else 0
-                
-                top_items_sheet.write(row, 0, i, center_format)
-                top_items_sheet.write(row, 1, item_name, normal_format)
-                top_items_sheet.write(row, 2, quantity, center_format)
-                top_items_sheet.write(row, 3, f"{percentage:.2f}%", center_format)
-                
-                # Ghi chú
-                note = ""
-                if i <= 3:
-                    note = "Món bán chạy nhất"
-                elif percentage < 1:
-                    note = "Món bán ít"
-                    
-                top_items_sheet.write(row, 4, note, normal_format)
-            
-            # Điều chỉnh độ rộng cột cho tất cả các sheet
-            for sheet in [overview_sheet, daily_sheet, orders_sheet, top_items_sheet]:
-                sheet.set_column('A:G', 20)
-            
-            # Đóng workbook
-            workbook.close()
-            
-            # Tạo response
-            output.seek(0)
-            response = HttpResponse(
-                output.read(),
-                content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-            )
-            response['Content-Disposition'] = f'attachment; filename="Doanh_thu_Tomcafe_thang_{selected_month}_{selected_year}.xlsx"'
-            
-            return response
-            
-        except Exception as e:
-            messages.error(request, f"Lỗi khi xuất báo cáo Excel hàng tháng: {str(e)}")
-            return HttpResponseRedirect(reverse('admin:index'))
-        finally:
-            # Make sure to close the BytesIO object
-            output.close()
+        return response
 
-    def check_table_status(self, request):
-        """Delegate to tomcafe_admin_site's check_table_status method"""
-        return tomcafe_admin_site.check_table_status(request)
+    def formatted_created_at(self, obj):
+        """Display the creation date in the local timezone with proper formatting"""
+        local_datetime = timezone.localtime(obj.created_at)
+        return local_datetime.strftime("%d/%m/%Y %H:%M")
+    formatted_created_at.short_description = 'Ngày tạo'
+    formatted_created_at.admin_order_field = 'created_at'
