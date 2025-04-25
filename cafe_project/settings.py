@@ -26,7 +26,7 @@ SECRET_KEY = 'django-insecure-_j$9%rtla=q%a+@@(qsi5p-fp50-cekccb(#@26)-j-86n5(et
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '127.0.0.1:8000','tomcafe20.onrender.com', 'localhost', '127.0.0.1']
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '127.0.0.1:8000','tomcafe20.onrender.com']
 
 
 # Application definition
