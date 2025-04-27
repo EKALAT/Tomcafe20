@@ -70,7 +70,8 @@ def confirm_order(request):
             
             Notification.objects.create(
                 order=order,
-                message=notification_message
+                message=notification_message,
+                notification_type='order'  # Explicitly set the notification type
             )
             
             # Xóa giỏ hàng sau khi đặt hàng thành công

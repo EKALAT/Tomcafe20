@@ -54,9 +54,16 @@ class Notification(models.Model):
         ('read', 'Đã đọc'),
     )
     
+    NOTIFICATION_TYPES = (
+        ('order', 'Đơn hàng'),
+        ('system', 'Hệ thống'),
+        ('info', 'Thông tin'),
+    )
+    
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='notifications')
     message = models.TextField()
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='unread')
+    notification_type = models.CharField(max_length=20, choices=NOTIFICATION_TYPES, default='order')
     created_at = models.DateTimeField(auto_now_add=True)
     
     def __str__(self):
